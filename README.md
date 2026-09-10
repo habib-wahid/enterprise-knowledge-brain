@@ -47,8 +47,11 @@ once — BR-64 by construction, not by discipline.
 
 ```sh
 python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
+./eck-cli sources sync          # fetch the estate from its remotes
+./eck-cli sources status        # what the register points at vs what is on disk
 ./eck-cli estate list           # what is in scope, and why      (BR-05)
 ./eck-cli refresh               # rebuild build/knowledge.db     (BR-65)
+./eck-cli refresh --fetch       # sync from the remotes first, then rebuild
 ./eck-cli coverage              # what was NOT interpreted       (BR-13)
 ./eck-cli status                # freshness, size, where models ran (BR-69)
 ./eck-cli verify-determinism    # identical rebuild, unchanged source (BR-11)
@@ -57,6 +60,38 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 ./eck-cli search "validation that blocks a salary payment" --source code
 ./eck-cli search "provident fund contribution" --asset FUND --full
 ```
+
+## Source acquisition
+
+The register names remotes; `eck sources sync` makes local working copies
+under `sources/` (gitignored). Nothing else in the codebase knows a URL, just
+as nothing else knows a path.
+
+```yaml
+sources:
+  code:
+    kind: git
+    origin: "https://gitlab.bracits.com/brac/payroll/inteacc-payroll.git"
+    ref: development
+    root: sources/inteacc-payroll     # must live under sources/
+```
+
+Shallow clones (`--depth 1`; pass `--depth 0` for full history). Update is
+`fetch` + `reset --hard FETCH_HEAD`, so the working copy always matches the
+named ref exactly.
+
+**Three guards, because syncing runs `git reset --hard`:**
+
+1. A `root` that resolves outside the project's `sources/` cache is
+   **refused** — a hard reset in a repository you are working in would
+   destroy uncommitted changes.
+2. An existing checkout whose `origin` does not match the register is
+   **refused**, so a same-named directory is never mistaken for the cache.
+3. Fetch and checkout only. The platform never pushes, commits, or writes to
+   a remote — the estate is read-only, and that includes its history.
+
+To keep using a checkout you manage yourself, drop `origin` or set
+`kind: dir`, and that source is left untouched.
 
 ## What M1 produces
 

@@ -16,15 +16,20 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore", message=".*OpenSSL.*")
 
-from . import register
+from . import config, register
 from .config import ENV_FILE, answering_credential, load_env
 from .govern import coverage, refresh
 from .store.db import KnowledgeStore
 
-ROOT = Path(__file__).resolve().parent.parent
-REGISTER = ROOT / "register" / "estate.yaml"
-BUILD_DIR = ROOT / "build"
-DB = BUILD_DIR / "knowledge.db"
+# .env must be read before any path is resolved, because the paths themselves
+# are configurable. Doing this at import time keeps every module-level
+# constant below consistent with what the process will actually use.
+load_env()
+
+ROOT = config.project_root()
+REGISTER = config.register_path()
+DB = config.db_path()
+BUILD_DIR = DB.parent
 
 
 def cmd_estate_list(_args: argparse.Namespace) -> int:
@@ -52,6 +57,11 @@ def cmd_estate_list(_args: argparse.Namespace) -> int:
 
 
 def cmd_refresh(args: argparse.Namespace) -> int:
+    if getattr(args, "fetch", False):
+        rc = cmd_sources_sync(argparse.Namespace(only=None, depth=1))
+        if rc != 0:
+            return rc
+        print()
     reg = register.load(REGISTER, ROOT)
     print(f"refreshing {reg.estate_id} from {REGISTER.relative_to(ROOT)}")
     out = refresh.build(reg, Path(args.out or BUILD_DIR), verbose=True,
@@ -60,6 +70,69 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     size = out.stat().st_size / 1_048_576
     print(f"\npublished {out.relative_to(ROOT)}  ({size:.1f} MB)")
     print("run `eck coverage` for what was and was not interpreted")
+    return 0
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Preflight: what this machine can and cannot do."""
+    from .govern import doctor
+    checks, profile = doctor.run(args.profile)
+    print(doctor.report(checks, profile))
+    return 1 if any(c["status"] == "fail" for c in checks) else 0
+
+
+def cmd_sources_sync(args: argparse.Namespace) -> int:
+    """Fetch every registered source from its remote (BR-01)."""
+    from .ingest import fetch
+
+    reg = register.load(REGISTER, ROOT)
+    print(f"syncing sources for {reg.estate_id}")
+    results = []
+    for name, spec in reg.sources.items():
+        if args.only and name != args.only:
+            continue
+        try:
+            results.append(fetch.sync(name, spec, ROOT, verbose=True,
+                                      depth=args.depth))
+        except fetch.SyncRefused as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+    print()
+    for r in results:
+        if r.action == "skipped":
+            print(f"  {r.name:<6} skipped   {r.detail}")
+        elif r.action == "cloned":
+            print(f"  {r.name:<6} cloned    {(r.after or '')[:8]}  ({r.ref or 'default'})")
+        elif r.moved:
+            print(f"  {r.name:<6} updated   {r.before[:8]} -> {r.after[:8]}")
+        else:
+            print(f"  {r.name:<6} unchanged {(r.after or '')[:8]}")
+    if any(r.moved or r.action == "cloned" for r in results):
+        print("\nSource moved — run `eck refresh` to rebuild the knowledge base.")
+    return 0
+
+
+def cmd_sources_status(_args: argparse.Namespace) -> int:
+    """What the register points at, and what is on disk."""
+    from .ingest import fetch
+
+    reg = register.load(REGISTER, ROOT)
+    print(f"{'SOURCE':<7} {'KIND':<5} {'REF':<14} {'LOCAL':<10} ORIGIN")
+    for name, spec in reg.sources.items():
+        root = Path(spec["root"])
+        if not root.is_absolute():
+            root = (ROOT / root).resolve()
+        local = fetch.head(root) if root.exists() else None
+        state = (local[:8] if local else ("missing" if not root.exists()
+                                          else "not-git"))
+        print(f"{name:<7} {spec.get('kind','dir'):<5} "
+              f"{str(spec.get('ref') or '-'):<14} {state:<10} "
+              f"{spec.get('origin') or root}")
+        if root.exists() and spec.get("origin"):
+            actual = fetch.origin_of(root)
+            if actual and not fetch._same_remote(actual, spec["origin"]):
+                print(f"{'':<7} MISMATCH on disk: {actual}")
     return 0
 
 
@@ -455,6 +528,8 @@ def main(argv: list[str] | None = None) -> int:
                            help="skip embeddings (disables meaning search)")
     p_refresh.add_argument("--allow-broken", action="store_true",
                            help="publish despite broken anchors (BR-18 override)")
+    p_refresh.add_argument("--fetch", action="store_true",
+                           help="sync sources from their remotes first")
     p_refresh.set_defaults(func=cmd_refresh)
 
     p_search = sub.add_parser("search", help="ask in ordinary language (CAP-5)")
@@ -481,6 +556,21 @@ def main(argv: list[str] | None = None) -> int:
     p_ask.add_argument("args", nargs="*", help="key=value arguments")
     p_ask.add_argument("--json", action="store_true")
     p_ask.set_defaults(func=cmd_ask)
+
+    p_doc = sub.add_parser("doctor", help="preflight checks for this machine")
+    p_doc.add_argument("--profile", choices=["auto", "builder", "server"],
+                       default="auto")
+    p_doc.set_defaults(func=cmd_doctor)
+
+    p_sources = sub.add_parser("sources", help="fetch registered source (CAP-1)")
+    s_sub = p_sources.add_subparsers(dest="sub", required=True)
+    s_sync = s_sub.add_parser("sync", help="clone or update from the remote")
+    s_sync.add_argument("--only", help="sync just one source (code, wiki)")
+    s_sync.add_argument("--depth", type=int, default=1,
+                        help="clone depth; 0 for full history")
+    s_sync.set_defaults(func=cmd_sources_sync)
+    s_sub.add_parser("status", help="what the register points at").set_defaults(
+        func=cmd_sources_status)
 
     p_serve = sub.add_parser("serve", help="serve the answer services over HTTP")
     p_serve.add_argument("--port", type=int, default=8800)
@@ -511,7 +601,6 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("verify-determinism", help="BR-11 check").set_defaults(
         func=cmd_verify_determinism)
 
-    load_env()          # .env before anything constructs an API client
     args = parser.parse_args(argv)
     return args.func(args)
 

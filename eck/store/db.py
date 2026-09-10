@@ -86,8 +86,8 @@ class KnowledgeStore:
     def add_asset(self, **kw: Any) -> None:
         self.conn.execute(
             "INSERT INTO asset (id,name,role,owner,tech,source_kind,abs_path,"
-            "source_commit,run_id) VALUES (:id,:name,:role,:owner,:tech,"
-            ":source_kind,:abs_path,:source_commit,:run_id)",
+            "rel_path,source_commit,run_id) VALUES (:id,:name,:role,:owner,"
+            ":tech,:source_kind,:abs_path,:rel_path,:source_commit,:run_id)",
             kw,
         )
 

@@ -1,0 +1,34 @@
+# Serving deployment. The estate is NOT here: knowledge.db is built elsewhere
+# and mounted read-only.
+services:
+  eck:
+    build: {context: ., target: server}
+    ports: ["8800:8800"]
+    environment:
+      ECK_DB_PATH: /data/knowledge.db
+      ECK_CURATED_DIR: /data/curated
+      HF_HOME: /models
+    volumes:
+      # knowledge.db goes here. Read-only: the server has no reason to write it.
+      - ./deploy/data:/data:ro
+      - model-cache:/models
+    restart: unless-stopped
+
+  # Run on a machine with network access to the estate:
+  #   docker compose run --rm builder
+  builder:
+    build: {context: ., target: builder}
+    profiles: ["build"]
+    environment:
+      ECK_DB_PATH: /data/knowledge.db
+      ECK_CURATED_DIR: /data/curated
+      ECK_GIT_TOKEN: ${ECK_GIT_TOKEN:-}
+      HF_HOME: /models
+    volumes:
+      - ./deploy/data:/data          # writable: this is what produces the db
+      - source-cache:/app/sources
+      - model-cache:/models
+
+volumes:
+  model-cache:
+  source-cache:

@@ -47,3 +47,49 @@ def answering_credential() -> tuple[bool, str]:
         if raw:
             return True, f"{var} (…{raw[-4:]})"
     return False, "not configured"
+
+
+# --------------------------------------------------------------- deployment
+# Every path the platform uses is resolvable from an environment variable so
+# a server can mount things wherever it likes. Defaults keep a developer
+# checkout working with no configuration at all.
+
+def _env_path(name: str, default: Path) -> Path:
+    raw = os.environ.get(name, "").strip()
+    return Path(raw).expanduser().resolve() if raw else default
+
+
+def project_root() -> Path:
+    return _env_path("ECK_PROJECT_ROOT", ROOT)
+
+
+def db_path() -> Path:
+    return _env_path("ECK_DB_PATH", project_root() / "build" / "knowledge.db")
+
+
+def register_path() -> Path:
+    return _env_path("ECK_REGISTER", project_root() / "register" / "estate.yaml")
+
+
+def curated_dir() -> Path:
+    return _env_path("ECK_CURATED_DIR", project_root() / "curated")
+
+
+def sources_root() -> Path:
+    """Where checked-out estate source lives, when it is present at all.
+
+    A serving deployment usually has no source: the knowledge base is built
+    elsewhere and only the database is shipped. Code that reads source must
+    therefore tolerate its absence rather than assume it (see
+    `store.source.resolve_asset_dir`).
+    """
+    return _env_path("ECK_SOURCES_ROOT", project_root() / "sources")
+
+
+def embed_model() -> str:
+    return os.environ.get("ECK_EMBED_MODEL", "").strip() or "BAAI/bge-small-en-v1.5"
+
+
+def git_token() -> str:
+    """Token for fetching a private remote on a machine with no keychain."""
+    return os.environ.get("ECK_GIT_TOKEN", "").strip()

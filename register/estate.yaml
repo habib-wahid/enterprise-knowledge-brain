@@ -28,14 +28,21 @@ defaults:
     - path: "**/src/test/**"
       reason: "Test code describes intended behaviour, not current production behaviour"
 
+# Where source comes from. `origin` + `kind: git` means `eck sources sync`
+# fetches it; `root` is the local working copy it maintains, and must live
+# under sources/ so a sync can never reset a repository you are working in.
+# Drop `origin` (or set `kind: dir`) to use a checkout you manage yourself.
 sources:
   code:
-    root: /Users/md.habiburrahman/inteacc-payroll
     kind: git
+    origin: "https://gitlab.bracits.com/brac/payroll/inteacc-payroll.git"
+    ref: development
+    root: sources/inteacc-payroll
   wiki:
-    root: sources/hrishelp-wiki
     kind: git
     origin: "https://github.com/inteacc/hrishelp.wiki.git"
+    ref: master
+    root: sources/hrishelp-wiki
 
 # --- Code assets: one per independently-built Jmix module -------------------
 # Each module has its own settings.gradle, so "asset" == "module" here (BR-03).

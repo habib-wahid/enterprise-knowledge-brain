@@ -327,6 +327,9 @@ async function openSource(asset, path, start, end){
     const pad = 6;
     const d = await api(`/api/source?asset=${encodeURIComponent(asset)}&path=${encodeURIComponent(path)}&start=${Math.max(1,start-pad)}&end=${end+pad}`);
     const w = String(d.end_line).length;
+    $('#src-title').textContent =
+      `${asset} · ${path}:${start}-${end}` +
+      (d.from === 'index' ? '  — from the index (source not on this host)' : '');
     $('#src-body').innerHTML = d.lines.map(l => {
       const hit = l.n >= start && l.n <= end;
       const num = `<span class="ln">${String(l.n).padStart(w)}</span>`;

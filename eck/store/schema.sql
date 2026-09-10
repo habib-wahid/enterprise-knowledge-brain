@@ -35,7 +35,11 @@ CREATE TABLE asset (
   owner          TEXT NOT NULL,
   tech           TEXT NOT NULL,
   source_kind    TEXT NOT NULL,          -- 'code' | 'wiki'
-  abs_path       TEXT NOT NULL,
+  abs_path       TEXT NOT NULL,          -- path on the BUILD machine
+  -- Same location relative to the project root, when it sits under it. This
+  -- is what lets a database built on one machine resolve source on another,
+  -- and what lets a server with no source at all fail softly instead of hard.
+  rel_path       TEXT,
   source_commit  TEXT,
   run_id         TEXT NOT NULL REFERENCES refresh_run(id)
 );
