@@ -207,3 +207,48 @@ class KnowledgeStore:
             ":target_end_line,:span_sha_at_approval,:span_sha_now,:state,"
             ":confidence,:justification,:proposer,:reviewed_by,:reviewed_at,"
             ":origin,:run_id)", list(rows))
+
+    # ------------------------------------------------------------- CAP-4/6
+
+    def add_process(self, process: Iterable[dict[str, Any]],
+                    stages: Iterable[dict[str, Any]],
+                    anchors: Iterable[dict[str, Any]],
+                    failures: Iterable[dict[str, Any]]) -> None:
+        self.conn.executemany(
+            "INSERT INTO process (id,name,description,origin,authored_by,"
+            "authored_at,run_id) VALUES (:id,:name,:description,:origin,"
+            ":authored_by,:authored_at,:run_id)", list(process))
+        self.conn.executemany(
+            "INSERT INTO process_stage (id,process_id,ordinal,stage_key,name,"
+            "description,is_entry,entry_trigger,run_id) VALUES (:id,"
+            ":process_id,:ordinal,:stage_key,:name,:description,:is_entry,"
+            ":entry_trigger,:run_id)", list(stages))
+        self.conn.executemany(
+            "INSERT INTO process_stage_anchor (id,stage_id,target_asset,"
+            "target_fqn,target_node_id,target_kind,target_path,"
+            "target_start_line,target_end_line,state,run_id) VALUES (:id,"
+            ":stage_id,:target_asset,:target_fqn,:target_node_id,"
+            ":target_kind,:target_path,:target_start_line,:target_end_line,"
+            ":state,:run_id)", list(anchors))
+        self.conn.executemany(
+            "INSERT INTO process_failure (id,stage_id,description,target_fqn,"
+            "target_node_id,target_path,target_start_line,state,run_id)"
+            " VALUES (:id,:stage_id,:description,:target_fqn,:target_node_id,"
+            ":target_path,:target_start_line,:state,:run_id)", list(failures))
+
+    def add_refdata_source(self, rows: Iterable[dict[str, Any]]) -> None:
+        self.conn.executemany(
+            "INSERT INTO refdata_source (id,kind,asset_id,reason,run_id)"
+            " VALUES (:id,:kind,:asset_id,:reason,:run_id)", list(rows))
+
+    def add_refdata_values(self, rows: Iterable[dict[str, Any]]) -> None:
+        self.conn.executemany(
+            "INSERT INTO refdata_value (id,source_id,asset_id,label,value,"
+            "path,start_line,snapshot_at,origin,run_id) VALUES (:id,"
+            ":source_id,:asset_id,:label,:value,:path,:start_line,"
+            ":snapshot_at,:origin,:run_id)", list(rows))
+
+    def add_refdata_excluded(self, rows: Iterable[dict[str, Any]]) -> None:
+        self.conn.executemany(
+            "INSERT INTO refdata_excluded (key_or_table,reason,run_id)"
+            " VALUES (:key_or_table,:reason,:run_id)", list(rows))

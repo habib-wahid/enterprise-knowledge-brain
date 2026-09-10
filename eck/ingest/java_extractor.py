@@ -17,6 +17,7 @@ missing edge (BR-13), and anything resolved by heuristic is labelled
 from __future__ import annotations
 
 import fnmatch
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
@@ -51,6 +52,11 @@ INJECT_ANNOTATIONS = {"Autowired", "Inject", "ViewComponent", "PersistenceContex
 HANDLER_ANNOTATIONS = {"Subscribe", "EventListener", "Install", "Supply"}
 INTEGRATION_HINTS = ("RestTemplate", "WebClient", "HttpClient", "JdbcTemplate",
                      "DataSource", "FeignClient")
+
+# @Value("${key:default}") or @Value("${key}") -> "key". Feeds BR-27 and
+# lets configuration.affecting cross-reference the CAP-6 refdata snapshot
+# by the actual property name, not just "a @Value field exists here".
+VALUE_KEY = re.compile(r"\$\{\s*([\w.\-]+)")
 
 
 @dataclass
@@ -134,6 +140,32 @@ def _walk(node: Node) -> Iterator[Node]:
 def _simple_type(type_text: str) -> str:
     """Strip generics and array markers: List<Foo> -> List, Foo[] -> Foo."""
     return type_text.split("<")[0].replace("[]", "").strip().split(".")[-1]
+
+
+def _throws(body: Node) -> list[str]:
+    """Exception type names directly thrown in this method (BR-29).
+
+    `throw new Foo(...)` resolves to a name; `throw someVariable;` cannot be
+    named from syntax alone and is recorded as 'unknown' rather than
+    skipped — a failure path that exists but cannot be labelled is still a
+    failure path (BR-70: a visible gap, not a silent one). Throws inside a
+    nested anonymous class or lambda are still attributed to the enclosing
+    method — Java does not give them their own method_declaration, and the
+    approximation is disclosed rather than hidden.
+    """
+    found: list[str] = []
+    for node in _walk(body):
+        if node.type != "throw_statement":
+            continue
+        expr = next((c for c in node.children if c.type not in ("throw", ";")),
+                    None)
+        if expr is not None and expr.type == "object_creation_expression":
+            type_node = expr.child_by_field_name("type")
+            found.append(_simple_type(_text(type_node)) if type_node
+                        else "unknown")
+        else:
+            found.append("unknown")
+    return sorted(set(found))
 
 
 # --------------------------------------------------------------- classification
@@ -327,6 +359,11 @@ class JavaExtractor:
             if target:
                 attrs["subscribes_to"] = target
 
+        body = node.child_by_field_name("body")
+        thrown = _throws(body) if body is not None else []
+        if thrown:
+            attrs["throws"] = thrown        # BR-29: derived failure origins
+
         mid = node_id(asset.id, kind.value, fqn)
         self.result.nodes.append(dict(
             id=mid, asset_id=asset.id, kind=kind.value, name=name, fqn=fqn,
@@ -346,7 +383,7 @@ class JavaExtractor:
 
         info.methods.setdefault(name, []).append(mid)
 
-        if node.child_by_field_name("body") is not None:
+        if body is not None:
             self._references(asset, rel, node, mid, owner_fqn, info,
                              imports, package)
 
@@ -417,6 +454,10 @@ class JavaExtractor:
                                      "annotations": sorted(annotations)}
             if any(h in type_text for h in INTEGRATION_HINTS):
                 attrs["integration_hint"] = simple
+            if "Value" in annotations:
+                m = VALUE_KEY.search(annotations["Value"])
+                if m:
+                    attrs["config_key"] = m.group(1)
 
             fid = node_id(asset.id, NodeKind.FIELD.value, fqn)
             self.result.nodes.append(dict(

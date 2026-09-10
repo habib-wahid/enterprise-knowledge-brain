@@ -249,6 +249,51 @@ def cmd_ask(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_process_list(_args: argparse.Namespace) -> int:
+    if not DB.exists():
+        print("no knowledge.db — run `eck refresh` first", file=sys.stderr)
+        return 1
+    store = KnowledgeStore(DB)
+    rows = store.query("SELECT * FROM process ORDER BY id")
+    if not rows:
+        print("no process curated yet — add one under processes/*.yaml")
+        store.close()
+        return 0
+    for r in rows:
+        n_stages = store.scalar(
+            "SELECT COUNT(*) FROM process_stage WHERE process_id=?", (r["id"],))
+        n_broken = store.scalar("""SELECT COUNT(*) FROM process_stage_anchor a
+            JOIN process_stage st ON st.id=a.stage_id
+            WHERE st.process_id=? AND a.state='broken'""", (r["id"],))
+        print(f"{r['id']:<24} {n_stages} stages"
+              f"{f'  {n_broken} BROKEN' if n_broken else ''}")
+        print(f"  {r['name']}")
+        if r["authored_by"]:
+            print(f"  authored by {r['authored_by']} on {r['authored_at']}")
+    store.close()
+    return 0
+
+
+def cmd_refdata_list(_args: argparse.Namespace) -> int:
+    if not DB.exists():
+        print("no knowledge.db — run `eck refresh` first", file=sys.stderr)
+        return 1
+    store = KnowledgeStore(DB)
+    rows = store.query("SELECT * FROM refdata_source ORDER BY kind, id")
+    print(f"{'KIND':<18} {'ID':<48} VALUES")
+    for r in rows:
+        n = store.scalar("SELECT COUNT(*) FROM refdata_value WHERE source_id=?",
+                         (r["id"],))
+        print(f"{r['kind']:<18} {r['id']:<48} {n}")
+    excluded = store.query("SELECT * FROM refdata_excluded ORDER BY key_or_table")
+    if excluded:
+        print(f"\nEXCLUDED (BR-42 — {len(excluded)})")
+        for e in excluded:
+            print(f"  {e['key_or_table']:<32} {e['reason']}")
+    store.close()
+    return 0
+
+
 def cmd_anchors_propose(args: argparse.Namespace) -> int:
     """CAP-3 — generate candidates for human review. Never publishes (BR-21)."""
     if not DB.exists():
@@ -484,6 +529,11 @@ def _fingerprint(db_path: Path) -> str:
         ("edge", "id,src_id,dst_id,kind,path,start_line,origin,confidence,attrs"),
         ("chunk", "id,asset_id,source,doc_id,node_id,heading,text,path,"
                   "start_line,end_line,span_sha,origin"),
+        ("process_stage_anchor", "id,stage_id,target_asset,target_fqn,"
+                                 "target_node_id,target_kind,target_path,"
+                                 "target_start_line,target_end_line,state"),
+        ("refdata_value", "id,source_id,asset_id,label,value,path,"
+                          "start_line,snapshot_at,origin"),
     ):
         for row in s.query(f"SELECT {cols} FROM {table} ORDER BY id"):
             h.update("|".join("" if v is None else str(v) for v in row).encode())
@@ -576,6 +626,16 @@ def main(argv: list[str] | None = None) -> int:
     p_serve.add_argument("--port", type=int, default=8800)
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.set_defaults(func=cmd_serve)
+
+    p_process = sub.add_parser("process", help="curated processes (CAP-4)")
+    p_process.add_subparsers(dest="sub", required=True).add_parser(
+        "list", help="show curated processes").set_defaults(
+        func=cmd_process_list)
+
+    p_refdata = sub.add_parser("refdata", help="reference data (CAP-6)")
+    p_refdata.add_subparsers(dest="sub", required=True).add_parser(
+        "list", help="show the allow-list and what was captured").set_defaults(
+        func=cmd_refdata_list)
 
     p_anchors = sub.add_parser("anchors", help="curated meaning (CAP-3)")
     a_sub = p_anchors.add_subparsers(dest="sub", required=True)

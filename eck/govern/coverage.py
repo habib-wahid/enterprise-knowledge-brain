@@ -118,6 +118,37 @@ def report(db_path: Path) -> str:
         w("  `eck anchors review`.")
     w("")
 
+    w("PROCESS & BEHAVIOUR (CAP-4)")
+    proc_count = s.scalar("SELECT COUNT(*) FROM process") or 0
+    if proc_count:
+        for r in s.query("SELECT id, name FROM process ORDER BY id"):
+            n_stages = s.scalar(
+                "SELECT COUNT(*) FROM process_stage WHERE process_id=?",
+                (r["id"],)) or 0
+            n_broken = s.scalar("""SELECT COUNT(*) FROM process_stage_anchor a
+                JOIN process_stage st ON st.id = a.stage_id
+                WHERE st.process_id=? AND a.state='broken'""", (r["id"],)) or 0
+            flag = f"  <-- {n_broken} broken anchor(s)" if n_broken else ""
+            w(f"  {r['id']:<24} {n_stages} stages{flag}")
+    else:
+        w("  none curated yet")
+    w("")
+
+    w("REFERENCE DATA (CAP-6)")
+    refdata_count = s.scalar("SELECT COUNT(*) FROM refdata_source") or 0
+    if refdata_count:
+        values = s.scalar("SELECT COUNT(*) FROM refdata_value") or 0
+        excluded = s.scalar("SELECT COUNT(*) FROM refdata_excluded") or 0
+        w(f"  allow-listed items   {refdata_count:>4}")
+        w(f"  values captured      {values:>4}")
+        w(f"  explicitly excluded  {excluded:>4}  (BR-42 — the judgement, not just the result)")
+        oldest = s.scalar("SELECT MIN(snapshot_at) FROM refdata_value")
+        if oldest:
+            w(f"  oldest snapshot      {oldest[:10]}")
+    else:
+        w("  none allow-listed yet")
+    w("")
+
     w("KNOWN GAPS (BR-72)")
     # CAP-3 proper is the anchor layer, not the wiki text. Ingesting the wiki
     # gives retrievable prose; it does NOT give a business statement tied to a
@@ -129,8 +160,13 @@ def report(db_path: Path) -> str:
         w(f"  - {unanchored:,} wiki statements have no approved anchor: they are")
         w("    retrievable but not bound to code, so BR-16 is only partly met")
     w("  - XML view descriptors (954 files) not parsed: UI structure is partial")
-    w("  - Liquibase changelogs (72 files) not read: schema history absent")
+    w("  - Liquibase changelogs are read only for allow-listed reference "
+      "tables (CAP-6);")
+    w("    schema history in general is not derived")
     w("  - chained call receivers unresolved: needs return-type tracking")
+    if proc_count <= 1:
+        w(f"  - only {proc_count} process(es) curated: most end-to-end "
+          f"processes have no CAP-4 definition")
     unowned = s.scalar("SELECT COUNT(*) FROM asset WHERE owner='UNASSIGNED'")
     if unowned:
         w(f"  - {unowned} assets have no named owner (BR-73)")
@@ -196,6 +232,21 @@ def data(db_path: Path) -> dict:
                             if wiki_chunks else 0.0},
         "totals": {"nodes": s.scalar("SELECT COUNT(*) FROM node") or 0,
                    "edges": total_edges},
+        "processes": [{
+            "id": r["id"], "name": r["name"],
+            "stages": s.scalar("SELECT COUNT(*) FROM process_stage"
+                              " WHERE process_id=?", (r["id"],)) or 0,
+            "broken_anchors": s.scalar("""SELECT COUNT(*) FROM
+                process_stage_anchor a JOIN process_stage st
+                ON st.id = a.stage_id WHERE st.process_id=? AND a.state='broken'""",
+                (r["id"],)) or 0,
+        } for r in s.query("SELECT id, name FROM process ORDER BY id")],
+        "refdata": {
+            "items": s.scalar("SELECT COUNT(*) FROM refdata_source") or 0,
+            "values": s.scalar("SELECT COUNT(*) FROM refdata_value") or 0,
+            "excluded": s.scalar("SELECT COUNT(*) FROM refdata_excluded") or 0,
+            "oldest_snapshot": s.scalar("SELECT MIN(snapshot_at) FROM refdata_value"),
+        },
         "gaps": [],
     }
 
@@ -204,8 +255,12 @@ def data(db_path: Path) -> dict:
         gaps.append(f"{out['anchors']['wiki_statements'] - anchored:,} wiki "
                     f"statements have no approved anchor — BR-16 only partly met")
     gaps.append("XML view descriptors (954 files) not parsed — UI structure partial")
-    gaps.append("Liquibase changelogs (72 files) not read — schema history absent")
+    gaps.append("Liquibase changelogs are read only for allow-listed reference "
+               "tables (CAP-6) — schema history in general is not derived")
     gaps.append("Chained call receivers unresolved — needs return-type tracking")
+    if len(out["processes"]) <= 1:
+        gaps.append(f"only {len(out['processes'])} process(es) curated — "
+                    f"most end-to-end processes have no CAP-4 definition")
     unowned = s.scalar("SELECT COUNT(*) FROM asset WHERE owner='UNASSIGNED'") or 0
     if unowned:
         gaps.append(f"{unowned} assets have no named owner (BR-73)")

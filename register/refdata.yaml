@@ -1,0 +1,59 @@
+# CAP-6 — the reference-data allow-list (BR-41).
+#
+# This file is the ONLY list of what gets snapshotted. An entry not listed
+# here is never captured, no matter what exists in source — there is no
+# wildcard path (BR-42). Every entry AND every exclusion needs a reason,
+# mirroring estate.yaml's own exclusion pattern.
+#
+# This estate has no application.properties — Jmix 2.8.1 externalises
+# config through @Value defaults and Liquibase-seeded reference tables
+# instead. Both are read from git-tracked source, so both are exactly the
+# "approved, reviewed" values BR-39 asks for: nobody changes them without a
+# merge request.
+
+items:
+  - key: inteacc.payroll.process-batch.application-ready.enabled
+    asset: HR
+    reason: >
+      Feature flag controlling whether the payroll batch waits for an
+      "application ready" signal before processing — directly changes
+      payroll processing behaviour (BR-27).
+
+  - key: inteacc.fund.accounting-close.member-gl-tolerance
+    asset: FUND
+    reason: >
+      Business tolerance threshold used when reconciling member balances at
+      fund accounting close.
+
+  - key: inteacc.hr.cost-allocation.project-inactive-alert-days
+    asset: HR
+    reason: >
+      Number of days after which an inactive project triggers a
+      cost-allocation alert.
+
+  - table: FUND_ACCOUNTING_SOURCE
+    asset: FUND
+    reason: >
+      Approved list of accounting source codes used in PF settlement and
+      final distribution controls — reference data, not transactional
+      records.
+
+  - table: MSGTMP_MESSAGE_TEMPLATE
+    asset: MDG
+    reason: >
+      Approved outbound message template catalogue (subject/body text for
+      automated notifications) — content is configuration, not personal
+      data; no recipient information is stored here.
+
+# What was deliberately left out, and why (BR-42).
+excluded:
+  - key: ui.login.defaultPassword
+    reason: "Credential. Never snapshotted under any circumstance."
+  - key: ui.login.defaultUsername
+    reason: "Login default paired with the credential above — excluded with it."
+  - key: google.cloud.credentials
+    reason: "Cloud credential path — a secret, not a business rule."
+  - key: google.cloud.storage.bucket-name
+    reason: >
+      Infrastructure identifier, not a business rule, and sits next to a
+      credential above — kept out rather than judged case by case.

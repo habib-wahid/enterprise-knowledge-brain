@@ -228,3 +228,109 @@ CREATE TABLE anchor (
 CREATE INDEX idx_anchor_state  ON anchor(state);
 CREATE INDEX idx_anchor_target ON anchor(target_asset, target_fqn);
 CREATE INDEX idx_anchor_chunk  ON anchor(chunk_id);
+
+-- ---------------------------------------------------------------- CAP-4
+-- Process & Behaviour. A process is a small number of engineer-authored
+-- files under processes/*.yaml (curated like estate.yaml — few of them,
+-- each needing real judgement, so a file beats a review queue here).
+--
+-- Unlike CAP-3 anchors, a stage anchor carries no span_sha and has no
+-- 'stale' state: it asserts "this stage lives here", not a claim about the
+-- body's content, so an edited method body does not invalidate it. Only a
+-- vanished fqn does (BR-70 — visible gap, not silent). A broken stage
+-- anchor does NOT abort refresh the way a broken CAP-3 anchor does (BR-18):
+-- BR-18 is scoped to single business-meaning statements; a process is many
+-- anchors at once, and aborting the whole knowledge base over one stale
+-- link in one process would be a blast radius the requirement never asked
+-- for. Instead it is reported — in the process itself, in coverage, and in
+-- status — which is what BR-70 actually requires.
+
+CREATE TABLE process (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  description   TEXT NOT NULL,
+  origin        TEXT NOT NULL CHECK(origin = 'curated'),
+  authored_by   TEXT,             -- git author of processes/<id>.yaml
+  authored_at   TEXT,             -- git commit date of that file
+  run_id        TEXT NOT NULL REFERENCES refresh_run(id)
+);
+
+CREATE TABLE process_stage (
+  id            TEXT PRIMARY KEY,   -- process_id + '::' + stage_key
+  process_id    TEXT NOT NULL REFERENCES process(id),
+  ordinal       INTEGER NOT NULL,
+  stage_key     TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  description   TEXT NOT NULL,
+  is_entry      INTEGER NOT NULL DEFAULT 0,   -- BR-24
+  entry_trigger TEXT,
+  run_id        TEXT NOT NULL REFERENCES refresh_run(id)
+);
+CREATE INDEX idx_stage_process ON process_stage(process_id, ordinal);
+
+CREATE TABLE process_stage_anchor (
+  id                 TEXT PRIMARY KEY,
+  stage_id           TEXT NOT NULL REFERENCES process_stage(id),
+  target_asset       TEXT NOT NULL,
+  target_fqn         TEXT NOT NULL,
+  target_node_id     TEXT,             -- NULL when broken
+  target_kind        TEXT,
+  target_path        TEXT,
+  target_start_line  INTEGER,
+  target_end_line    INTEGER,
+  state              TEXT NOT NULL CHECK(state IN ('resolved','broken')),
+  run_id             TEXT NOT NULL REFERENCES refresh_run(id)
+);
+CREATE INDEX idx_stanchor_stage ON process_stage_anchor(stage_id);
+
+-- BR-29: curated failure narrative, anchored to its throw site where one
+-- is named. Structural throw sites (see node.attrs->>'throws') are the
+-- derived half of BR-29; this table is the curated half — the business
+-- reason a failure exists, which structure alone cannot say.
+CREATE TABLE process_failure (
+  id                 TEXT PRIMARY KEY,
+  stage_id           TEXT NOT NULL REFERENCES process_stage(id),
+  description        TEXT NOT NULL,
+  target_fqn         TEXT,
+  target_node_id     TEXT,
+  target_path        TEXT,
+  target_start_line  INTEGER,
+  state              TEXT NOT NULL CHECK(state IN ('resolved','broken','unanchored')),
+  run_id             TEXT NOT NULL REFERENCES refresh_run(id)
+);
+
+-- ---------------------------------------------------------------- CAP-6
+-- Reference Data. BR-41: one explicit, reviewable allow-list
+-- (register/refdata.yaml) — never a wildcard. BR-42: no customer, personal
+-- or transactional data — enforced by requiring every entry to be a named
+-- config key or a named reference table, each with a stated reason, and by
+-- recording what was explicitly excluded and why (refdata_excluded), so an
+-- auditor sees the judgement, not just its result.
+
+CREATE TABLE refdata_source (
+  id          TEXT PRIMARY KEY,     -- the config key, or the table name
+  kind        TEXT NOT NULL CHECK(kind IN ('config_property','reference_table')),
+  asset_id    TEXT NOT NULL REFERENCES asset(id),
+  reason      TEXT NOT NULL,
+  run_id      TEXT NOT NULL REFERENCES refresh_run(id)
+);
+
+CREATE TABLE refdata_value (
+  id           TEXT PRIMARY KEY,
+  source_id    TEXT NOT NULL REFERENCES refdata_source(id),
+  asset_id     TEXT NOT NULL REFERENCES asset(id),
+  label        TEXT NOT NULL,        -- the config key itself, or a row's business code
+  value        TEXT,                 -- JSON — a default, or a seeded row's columns
+  path         TEXT NOT NULL,        -- BR-35: where this was captured
+  start_line   INTEGER NOT NULL,
+  snapshot_at  TEXT NOT NULL,        -- BR-44: age of this snapshot
+  origin       TEXT NOT NULL CHECK(origin = 'derived'),  -- read from source, never hand-entered
+  run_id       TEXT NOT NULL REFERENCES refresh_run(id)
+);
+CREATE INDEX idx_refval_source ON refdata_value(source_id);
+
+CREATE TABLE refdata_excluded (
+  key_or_table TEXT PRIMARY KEY,
+  reason       TEXT NOT NULL,
+  run_id       TEXT NOT NULL REFERENCES refresh_run(id)
+);

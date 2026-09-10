@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from eck import curated, register                      # noqa: E402
+from eck import config, curated, register              # noqa: E402
 from eck.curated import Anchor                         # noqa: E402
 from eck.govern import anchor_check, refresh           # noqa: E402
 from eck.store.db import KnowledgeStore, sha256, utc_now  # noqa: E402
@@ -122,6 +122,14 @@ def main() -> int:
     # Redirect the curated store so the real project's anchors are untouched.
     curated.CANDIDATES = tmp / "candidates.jsonl"
     curated.ANCHORS = tmp / "anchors.jsonl"
+    # This test is about CAP-3 anchors only. Without this, refresh.build()
+    # would load the REAL register/refdata.yaml (real assets like HR, FUND)
+    # against this synthetic estate's DEMO/WIKI assets and fail on a foreign
+    # key — the M6 stages need their own isolation, same as the curated store.
+    orig_processes_dir, orig_refdata_path = (config.processes_dir,
+                                             config.refdata_register_path)
+    config.processes_dir = lambda: tmp / "no-processes"
+    config.refdata_register_path = lambda: tmp / "no-refdata.yaml"
 
     try:
         print("1. build the synthetic estate")
@@ -203,6 +211,8 @@ def main() -> int:
               state == "broken", f"got {state!r}")
 
     finally:
+        config.processes_dir = orig_processes_dir
+        config.refdata_register_path = orig_refdata_path
         shutil.rmtree(tmp, ignore_errors=True)
 
     print(f"\n{passed} passed, {failed} failed")

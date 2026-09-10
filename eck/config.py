@@ -75,6 +75,17 @@ def curated_dir() -> Path:
     return _env_path("ECK_CURATED_DIR", project_root() / "curated")
 
 
+def processes_dir() -> Path:
+    """CAP-4 — engineer-authored process definitions."""
+    return _env_path("ECK_PROCESSES_DIR", project_root() / "processes")
+
+
+def refdata_register_path() -> Path:
+    """CAP-6 — the reference-data allow-list."""
+    return _env_path("ECK_REFDATA_REGISTER",
+                     project_root() / "register" / "refdata.yaml")
+
+
 def sources_root() -> Path:
     """Where checked-out estate source lives, when it is present at all.
 

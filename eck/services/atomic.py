@@ -518,7 +518,8 @@ def detail_source(ctx: Context, element: str, asset: str = None) -> ServiceResul
     id="configuration.affecting", category="configuration",
     question="What configuration changes this behaviour?",
     when_to_use="Use when behaviour seems environment-dependent. Reports "
-                "config-bearing fields on the element.",
+                "config-bearing fields on the element, with current values "
+                "for any that are on the CAP-6 reference-data allow-list.",
     inputs={"element": "the element to inspect", "asset": "optional asset id"})
 def configuration_affecting(ctx: Context, element: str,
                             asset: str = None) -> ServiceResult:
@@ -539,20 +540,241 @@ def configuration_affecting(ctx: Context, element: str,
         return unknown(
             "configuration.affecting", element,
             f"No configuration-bearing fields are derived on {subject.fqn}.",
-            needed=["CAP-6 reference-data snapshots (M6) are what would answer "
-                    "configuration-driven questions properly",
-                    "application.properties is not yet ingested"])
+            needed=["a param-level @Value is not derivable yet — only field-"
+                    "level annotations are (a disclosed extractor gap)",
+                    "or this element genuinely has no configuration switch"])
+
+    import json as _json
+
+    fields, ev = [], []
+    unlisted = 0
+    for r in rows:
+        attrs = _json.loads(r["attrs"])
+        key = attrs.get("config_key")
+        entry: dict[str, Any] = {"field": r["name"], "type": r["signature"],
+                                 "at": f"{r['path']}:{r['start_line']}"}
+        if key:
+            entry["config_key"] = key
+            values = ctx.store.query(
+                "SELECT rv.*, rs.reason FROM refdata_value rv"
+                " JOIN refdata_source rs ON rs.id = rv.source_id"
+                " WHERE rv.source_id = ? ORDER BY rv.start_line", (key,))
+            if values:
+                entry["current_value"] = _json.loads(values[0]["value"])
+                entry["snapshot_at"] = values[0]["snapshot_at"]        # BR-44
+                entry["allow_list_reason"] = values[0]["reason"]       # BR-41
+                for v in values:
+                    ev.append(Evidence(
+                        asset_id=v["asset_id"], path=v["path"],
+                        start_line=v["start_line"], end_line=v["start_line"],
+                        kind="config_value", fqn=key, origin="derived",
+                        confidence=1.0))
+            else:
+                unlisted += 1
+        fields.append(entry)
+
+    gaps = []
+    if unlisted:
+        gaps.append(f"{unlisted} config key(s) found in code are not on the "
+                    f"CAP-6 allow-list (register/refdata.yaml), so no current "
+                    f"value is shown for them — BR-45 forbids reading a key "
+                    f"that was not explicitly approved.")
 
     return ServiceResult(
-        service="configuration.affecting", question=element, outcome=PARTIAL,
-        findings=[{**_header(subject), "config_fields": len(rows)}] +
-                 [{"field": r["name"], "type": r["signature"],
-                   "at": f"{r['path']}:{r['start_line']}"} for r in rows],
-        evidence=[_ev(ctx, r) for r in rows],
-        gaps=["Only annotation-bearing fields are found. Actual VALUES require "
-              "the CAP-6 configuration snapshot, which is not built yet (M6)."],
-        presentation_guidance="Name the settings, and state that current values "
-                              "are not available yet.")
+        service="configuration.affecting", question=element,
+        outcome=ANSWERED if any("current_value" in f for f in fields) else PARTIAL,
+        findings=[{**_header(subject), "config_fields": len(fields)}] + fields,
+        evidence=[_ev(ctx, r) for r in rows] + ev,
+        gaps=gaps,
+        presentation_guidance="Name each setting. Where a current value is "
+                              "present, state its snapshot age (BR-44) — it "
+                              "is a git-tracked default, not a live read.")
+
+
+@service(
+    id="configuration.reference_data", category="configuration",
+    question="What is the approved value of this reference-data key or table?",
+    when_to_use="Use for a specific config key or table name you already "
+                "know. Only ever answers from the CAP-6 allow-list — a key "
+                "or table not on it returns unknown, never a guess (BR-45).",
+    inputs={"key": "a config property key or a reference table name"})
+def configuration_reference_data(ctx: Context, key: str) -> ServiceResult:
+    src_row = ctx.store.query(
+        "SELECT * FROM refdata_source WHERE id = ?", (key,))
+    if not src_row:
+        excluded = ctx.store.query(
+            "SELECT reason FROM refdata_excluded WHERE key_or_table = ?", (key,))
+        if excluded:
+            return unknown(
+                "configuration.reference_data", key,
+                f"{key!r} was explicitly excluded from reference data.",
+                needed=[f"nothing — this is deliberate: {excluded[0]['reason']}"])
+        return unknown(
+            "configuration.reference_data", key,
+            f"{key!r} is not on the CAP-6 allow-list "
+            f"(register/refdata.yaml).",
+            needed=["only allow-listed keys/tables can be read (BR-45) — "
+                    "add it to register/refdata.yaml with a reason, if it "
+                    "should be tracked"])
+
+    source = src_row[0]
+    values = ctx.store.query(
+        "SELECT * FROM refdata_value WHERE source_id = ? ORDER BY label",
+        (key,))
+    if not values:
+        return ServiceResult(
+            service="configuration.reference_data", question=key,
+            outcome=PARTIAL,
+            findings=[{"key": key, "kind": source["kind"],
+                      "reason": source["reason"], "values_found": 0}],
+            gaps=[f"{key!r} is allow-listed but nothing was captured for it "
+                 f"at the last refresh — the key or table name may not "
+                 f"match what is actually in source"],
+            presentation_guidance="State that this is approved for tracking "
+                                  "but currently empty.")
+
+    import json as _json
+    return ServiceResult(
+        service="configuration.reference_data", question=key, outcome=ANSWERED,
+        findings=[{"key": key, "kind": source["kind"],
+                  "reason": source["reason"], "values_found": len(values)}] +
+                 [{"label": v["label"], "value": _json.loads(v["value"]),
+                   "snapshot_at": v["snapshot_at"]} for v in values],
+        evidence=[Evidence(
+            asset_id=v["asset_id"], path=v["path"], start_line=v["start_line"],
+            end_line=v["start_line"], kind=source["kind"], fqn=key,
+            origin="derived", confidence=1.0) for v in values],
+        gaps=[f"snapshot taken at refresh time from git-tracked source "
+             f"(BR-40) — not a live read; oldest snapshot here is "
+             f"{min(v['snapshot_at'] for v in values)[:10]}"],
+        presentation_guidance="State every value with its snapshot date "
+                              "(BR-44) and the reason it is tracked (BR-41). "
+                              "Never present this as a live production read.")
+
+
+# ------------------------------------------------------------------ 12 process (CAP-4)
+
+@service(
+    id="flow.process_stages", category="flow",
+    question="What are the ordered stages of this business process?",
+    when_to_use="Use for a named end-to-end process (e.g. 'salary hold and "
+                "release'). Returns curated, human-authored stage order with "
+                "derived evidence per stage — checks, effects and failure "
+                "sites. For what one piece of code calls, use flow.downstream "
+                "instead; source order is not process order.",
+    inputs={"process": "the process name or id"})
+def flow_process_stages(ctx: Context, process: str) -> ServiceResult:
+    rows = ctx.store.query(
+        "SELECT * FROM process WHERE id = ? OR name LIKE ?",
+        (process, f"%{process}%"))
+    if not rows:
+        known = ctx.store.query("SELECT id, name FROM process")
+        return unknown(
+            "flow.process_stages", process,
+            f"No curated process matches {process!r}.",
+            needed=["a process name from the list below — CAP-4 only covers "
+                    "processes an engineer has explicitly authored"],
+            gaps=[f"curated: {r['id']} ({r['name']})" for r in known] or
+                 ["no process has been curated yet"])
+
+    proc = rows[0]
+    stages = ctx.store.query(
+        "SELECT * FROM process_stage WHERE process_id = ? ORDER BY ordinal",
+        (proc["id"],))
+
+    findings: list[dict[str, Any]] = [{
+        "process": proc["name"], "description": proc["description"],
+        "stage_count": len(stages),
+        "authored_by": proc["authored_by"], "authored_at": proc["authored_at"]}]
+    evidence: list[Evidence] = []
+    gaps: list[str] = []
+    prior_assets: set[str] = set()
+
+    for stage in stages:
+        anchors = ctx.store.query(
+            "SELECT * FROM process_stage_anchor WHERE stage_id = ?",
+            (stage["id"],))
+        resolved = [a for a in anchors if a["state"] == "resolved"]
+        broken = [a for a in anchors if a["state"] == "broken"]
+
+        checks, effects = [], []
+        for a in resolved:
+            if a["target_node_id"]:
+                checks += ctx.store.query("""
+                    SELECT n.name, n.path, n.start_line FROM node n
+                    JOIN edge e ON e.src_id = n.id AND e.kind='belongs_to'
+                    WHERE e.dst_id = ? AND n.kind IN ('method','event_handler')
+                      AND (n.name LIKE 'validate%' OR n.name LIKE 'has%'
+                           OR n.name LIKE 'can%')
+                    LIMIT 6""", (a["target_node_id"],))
+                effects += ctx.store.query("""
+                    SELECT DISTINCT tn.fqn, tn.kind FROM edge e
+                    JOIN node tn ON tn.id = e.dst_id
+                    WHERE e.src_id = ? AND tn.kind IN ('entity','store')
+                    LIMIT 6""", (a["target_node_id"],))
+
+        # BR-23 — a handover is a stage introducing an asset the process
+        # has not touched yet, derived from the anchors, not asserted.
+        stage_assets = {a["target_asset"] for a in resolved}
+        handover_from = sorted(stage_assets - prior_assets) if prior_assets \
+            else []
+        prior_assets |= stage_assets
+
+        failures = ctx.store.query(
+            "SELECT * FROM process_failure WHERE stage_id = ?", (stage["id"],))
+
+        findings.append({
+            "stage": stage["ordinal"] + 1, "key": stage["stage_key"],
+            "name": stage["name"], "description": stage["description"],
+            "is_entry": bool(stage["is_entry"]),           # BR-24
+            "entry_trigger": stage["entry_trigger"],
+            "implemented_by": [a["target_fqn"] for a in resolved],
+            "broken_anchors": [a["target_fqn"] for a in broken],
+            "cross_application_handover": handover_from or None,  # BR-23
+            "checks_found": sorted({c["name"] for c in checks}),   # BR-25
+            "data_touched": sorted({e["fqn"] for e in effects}),   # BR-26
+            "failures": [{"description": f["description"],
+                         "at": (f"{f['target_path']}:{f['target_start_line']}"
+                                if f["target_path"] else None),
+                         "state": f["state"]} for f in failures],  # BR-29
+        })
+
+        for a in resolved:
+            evidence.append(Evidence(
+                asset_id=a["target_asset"], path=a["target_path"],
+                start_line=a["target_start_line"], end_line=a["target_end_line"],
+                kind=a["target_kind"] or "unknown", fqn=a["target_fqn"],
+                origin="curated", confidence=1.0))
+        for f in failures:
+            if f["state"] == "resolved":
+                evidence.append(Evidence(
+                    asset_id=proc["id"], path=f["target_path"],
+                    start_line=f["target_start_line"],
+                    end_line=f["target_start_line"], kind="failure_path",
+                    fqn=f["target_fqn"] or "", origin="curated", confidence=1.0))
+        if broken:
+            gaps.append(f"stage {stage['stage_key']!r}: {len(broken)} anchor(s) "
+                        f"no longer resolve — the code they pointed at was "
+                        f"renamed or removed since this process was authored")
+
+    gaps.append("Checks and data-touched are found by naming convention on "
+               "each stage's anchored elements — a floor, not a complete list "
+               "(same limitation as checks.enforced_in and effects.of).")
+    gaps.append("Stage ORDER is curated by an engineer, not derived — call "
+               "order in the code does not reliably reflect business process "
+               "order, especially across applications.")
+
+    return ServiceResult(
+        service="flow.process_stages", question=process,
+        outcome=PARTIAL if any("broken_anchors" in f and f.get("broken_anchors")
+                               for f in findings[1:]) else ANSWERED,
+        findings=findings, evidence=evidence, gaps=gaps,
+        presentation_guidance=(
+            "Present stages in order with their entry trigger on stage one. "
+            "Call out cross-application handovers explicitly — they are "
+            "where hidden coordination requirements live. Attribute the "
+            "stage narrative to its curated origin (BR-20); checks, data and "
+            "failure locations are derived evidence supporting it."))
 
 
 # ------------------------------------------------------------------ 11 status
@@ -568,11 +790,22 @@ def status_platform(ctx: Context) -> ServiceResult:
         "SELECT * FROM refresh_run ORDER BY started_at DESC LIMIT 1")[0]
     counts = {k: ctx.store.scalar(f"SELECT COUNT(*) FROM {t}") for k, t in (
         ("assets", "asset"), ("nodes", "node"), ("edges", "edge"),
-        ("chunks", "chunk"), ("anchors", "anchor"))}
+        ("chunks", "chunk"), ("anchors", "anchor"),
+        ("processes", "process"), ("refdata_items", "refdata_source"))}
     resolved_calls = ctx.store.scalar(
         "SELECT COUNT(*) FROM edge WHERE kind='invokes'") or 0
     unresolved = ctx.store.scalar("SELECT COUNT(*) FROM unresolved_ref") or 0
     rate = 100.0 * resolved_calls / max(1, resolved_calls + unresolved)
+    broken_stages = ctx.store.scalar(
+        "SELECT COUNT(*) FROM process_stage_anchor WHERE state='broken'") or 0
+
+    gaps = [f"{100 - rate:.1f}% of call sites are unresolved"]
+    gaps.append(f"{counts['processes']} process(es) curated — most business "
+               f"processes have no CAP-4 definition yet" if counts["processes"]
+               else "no process is curated yet (CAP-4)")
+    if broken_stages:
+        gaps.append(f"{broken_stages} process stage anchor(s) are broken — "
+                    f"see flow.process_stages for which")
 
     return ServiceResult(
         service="status.platform", question="platform status", outcome=ANSWERED,
@@ -582,9 +815,9 @@ def status_platform(ctx: Context) -> ServiceResult:
             "call_resolution_pct": round(rate, 1),
             "anchored_statements": ctx.store.scalar(
                 "SELECT COUNT(DISTINCT chunk_id) FROM anchor WHERE state='resolved'") or 0,
+            "broken_process_stage_anchors": broken_stages,
         }],
         evidence=[],
-        gaps=[f"{100 - rate:.1f}% of call sites are unresolved",
-              "CAP-4 process behaviour and CAP-6 configuration are not built"],
+        gaps=gaps,
         presentation_guidance="Give the freshness date and the coverage numbers "
                               "plainly. Do not soften the gaps.")

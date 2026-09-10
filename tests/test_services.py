@@ -83,6 +83,9 @@ def main() -> int:
         "search.knowledge": {"question": "how is a salary hold released"},
         "detail.source": {"element": "SalaryPaymentSendBackServiceBean"},
         "configuration.affecting": {"element": "SalaryPaymentSendBackServiceBean"},
+        "configuration.reference_data": {
+            "key": "inteacc.payroll.process-batch.application-ready.enabled"},
+        "flow.process_stages": {"process": "salary hold and release"},
         "status.platform": {},
         "composite.change_impact": {"element": "SalaryPaymentSendBackServiceBean"},
         "composite.failure_trace": {"symptom": "PayrollTaxValidationException"},

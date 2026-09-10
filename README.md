@@ -15,7 +15,7 @@ Build plan: https://claude.ai/code/artifact/08c02e78-74af-43ec-840d-977cc8dbc0ac
 | M3 Anchoring | CAP-3 | done (review queue open) |
 | M4 Answer services | CAP-7 | done |
 | M5 MCP server | CAP-8 | not started |
-| M6 Process + reference data | CAP-4, CAP-6 | not started |
+| M6 Process + reference data | CAP-4, CAP-6 | done |
 | M7 Refresh + governance | CAP-9 | partial (rebuild, atomicity, coverage) |
 
 ## Web interface
@@ -234,6 +234,80 @@ and (next) the MCP server all enumerate it, so BR-51 and BR-64 hold by
 construction rather than by discipline. `tests/test_services.py` asserts
 this contract — 18 checks including that invoking all 15 services leaves the
 database byte-identical (BR-53).
+
+## M6 — process behaviour and reference data
+
+```sh
+./eck-cli process list                       # curated processes and their state
+./eck-cli refdata list                       # the allow-list, values, exclusions
+./eck-cli ask flow.process_stages process="salary hold and release"
+./eck-cli ask configuration.reference_data key=FUND_ACCOUNTING_SOURCE
+./eck-cli ask configuration.affecting element=PayrollProcessBatchServiceBean
+```
+
+### CAP-4 — one real, fully evidenced process
+
+`processes/salary-hold-release.yaml` — engineer-authored, git-tracked, the
+same way `estate.yaml` is (a review queue doesn't fit here: there are few
+processes and each needs real judgement about where a stage lives). 5
+stages, 8 anchors, all resolved against the real payroll estate:
+
+```
+hold-created  ->  duplicate-check  ->  approval  ->  release  ->  payment-block
+```
+
+Every stage anchor is re-validated against freshly derived structure on
+every refresh, exactly like a CAP-3 anchor — but with one deliberate
+difference: **a broken process anchor does not abort the refresh.** BR-18's
+abort is scoped to a single business-meaning statement; a process is many
+anchors travelling together, and aborting the whole knowledge base over one
+stale link in one process would be a blast radius the requirement never
+asked for. It is reported instead — in the process answer itself, in
+`coverage`, and in `status` — never silently dropped (BR-70).
+`tests/test_process_and_refdata.py` proves this end to end on a synthetic
+estate, deliberately contrasting with `test_anchor_lifecycle.py`'s proof of
+the opposite behaviour for CAP-3.
+
+Failure paths (BR-29) combine a curated business reason with **derived**
+throw-site evidence: the extractor now records every `throw new Foo(...)`
+directly in a method as `attrs.throws` — 450 real throw sites found across
+the estate — so a failure path is not asserted from narrative alone.
+
+### CAP-6 — reference data, without an `application.properties`
+
+This estate has none. Jmix 2.8.1 here externalises configuration through
+`@Value("${key:default}")` fields and through reference tables seeded via
+Liquibase `<insert>` — both git-reviewed, so both are exactly the "approved"
+values BR-39 asks for; nobody changes them without a merge request.
+
+`register/refdata.yaml` is the one explicit, reviewable allow-list (BR-41).
+5 items captured (2 config keys with real defaults, 1 with a documented gap
+— see below — and 2 reference tables with 30 real seeded rows), and **4
+credential-shaped keys explicitly excluded with reasons** (BR-42) —
+`ui.login.defaultPassword`, `google.cloud.credentials` and their neighbours,
+found by the same extractor sweep and deliberately left off the list.
+
+`configuration.reference_data` validates every request against the
+allow-list before answering: an excluded key, an unlisted key, and a real
+key all return distinctly different, honest outcomes (BR-45), each proven by
+test. BR-43 (no write path) is checked by introspecting the actual FastAPI
+route table for a POST/PUT/PATCH/DELETE containing "refdata" — none exists —
+contrasted against anchor review, which does have one, so the assertion is
+a real absence, not an artifact of hard-to-find routes.
+
+**Known limitation, disclosed rather than hidden — and narrower than it
+first looks.** One of the three real `@Value` config keys in this estate
+(`inteacc.fund.accounting-close.member-gl-tolerance`) is declared on a
+**constructor parameter**, not a field. `configuration.reference_data` and
+`refdata list` capture it correctly — that path scans raw file text, not
+structure, so it does not care where the annotation sits, and the value
+(`0.01`) is really there. What is genuinely missing is the *cross-reference*:
+`configuration.affecting element=FundAccountingCloseServiceBean` returns
+`unknown`, because it looks for the key on a FIELD node's derived attrs, and
+the extractor only captures `@Value` at field level, not on parameters. Ask
+for the key directly and the platform knows it; ask by element and, for this
+one case, it correctly says it doesn't — rather than silently returning
+nothing with no explanation either way.
 
 ## Retrieval confidence, and its limits
 

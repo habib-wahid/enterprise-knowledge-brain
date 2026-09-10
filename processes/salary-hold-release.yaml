@@ -1,0 +1,94 @@
+# CAP-4 — curated process definition (BR-22).
+#
+# Authored once by an engineer, like estate.yaml, not through the anchor
+# review queue: there are few processes and each needs real judgement about
+# where a stage genuinely lives. Order below is authoritative — nothing is
+# inferred from source layout or call order (see flow.downstream's own
+# disclosed limitation for why that would be dishonest).
+#
+# Grounded in Payroll-management.md section 4.0 and the real classes that
+# implement it. Every anchor is re-validated against derived structure on
+# every refresh (govern/process_check.py); a broken one is reported, not
+# silently dropped, and does not stop the refresh (see schema.sql).
+
+id: salary-hold-release
+name: "Salary hold and release"
+description: >
+  An employee's salary can be withheld from payment — automatically on
+  separation, or manually — then released before a payment is created, or
+  carried into final settlement if it never is.
+asset: HR
+
+stages:
+  - key: hold-created
+    name: "Hold is created"
+    is_entry: true
+    entry_trigger: >
+      Either an employee separation is initiated, or HR manually opens the
+      Salary Hold and Release screen for an employee.
+    description: >
+      A hold record is created for one or more salary months between the
+      separation date and its effective date. The salary itself is still
+      calculated in Salary Payscale; the hold only excludes it from the
+      Salary Payment being created.
+    anchors:
+      - com.inteacc.hr.listener.org.EmplSeparationEventListener#createSalaryOnHold(EmplSeparation entity)
+      - com.inteacc.hr.view.pr.salaryholdrelease.SalaryHoldReleaseDetailView
+
+  - key: duplicate-check
+    name: "Duplicate and overlap validation"
+    description: >
+      Before a hold can progress, the platform checks whether an active or
+      pending hold already exists for the same employee in an overlapping
+      date range. A duplicate blocks the record from moving forward.
+    anchors:
+      - com.inteacc.hr.service.SalaryHoldReleaseValidationServiceBean
+
+  - key: approval
+    name: "Maker-checker approval"
+    description: >
+      A hold moves through Draft, then Approval in progress, then Approved
+      — a maker submits it and a different checker approves it before
+      release becomes possible.
+    anchors:
+      - com.inteacc.hr.view.pr.salaryholdrelease.SalaryHoldReleaseListView#onReadyForApprovalBtnClick(final ClickEvent<JmixButton> event)
+      - com.inteacc.hr.view.pr.salaryholdrelease.SalaryHoldReleaseListView#onApproveBtnClick(final ClickEvent<JmixButton> event)
+
+  - key: release
+    name: "Release before payment"
+    description: >
+      An approved hold can be released at any point before a Salary Payment
+      is created for that month. Reprocessing the payscale also clears the
+      hold automatically. Once a payment exists, the hold can no longer be
+      released through this path — the only remaining route is a separate
+      Salary Payment created directly from the hold, to preserve reconciled
+      totals.
+    anchors:
+      - com.inteacc.hr.view.pr.salaryholdrelease.SalaryHoldReleaseListView#releaseSalaryHold(SalaryHoldRelease salaryHoldRelease, String releaseReason)
+      - com.inteacc.hr.view.pr.salaryholdrelease.SalaryHoldReleaseListView#onSalaryHoldReleasesTableRelease(final ActionPerformedEvent event)
+
+  - key: payment-block
+    name: "Payment-time enforcement"
+    description: >
+      Salary Payment creation itself re-checks every payscale and payment
+      method for unresolved holds, so a hold cannot be bypassed even if it
+      was missed earlier in the flow.
+    anchors:
+      - com.inteacc.hr.service.SalaryHoldPaymentValidationServiceBean
+
+failures:
+  - stage: duplicate-check
+    description: >
+      A hold that overlaps an existing active or pending hold for the same
+      employee is rejected outright with a fixed message naming the
+      conflict, rather than silently merged or ignored.
+    anchor: com.inteacc.hr.service.SalaryHoldReleaseValidationServiceBean#validateDuplicateOnHoldRecordOrThrow(SalaryHoldRelease salaryHoldRelease)
+    asset: HR
+
+  - stage: payment-block
+    description: >
+      If a payscale, payment or payment method still carries an unresolved
+      hold when a Salary Payment is assembled, payment creation is blocked
+      and the operator is shown which records are holding it up.
+    anchor: com.inteacc.hr.service.SalaryHoldPaymentValidationServiceBean#validateSalaryPayscales(Collection<SalaryPayscale> salaryPayscales)
+    asset: HR

@@ -173,25 +173,47 @@ def input_acceptance(ctx: Context, element: str, asset: str = None) -> ServiceRe
             "asset": "optional asset id"})
 def process_description(ctx: Context, process: str,
                         asset: str = None) -> ServiceResult:
+    # A curated CAP-4 process definition, when one exists for this name, is
+    # a verified answer — ordered stages, real evidence, not a search result.
+    # Prefer it; fall back to search-only when no process has been authored
+    # for this name, which is the honest, disclosed state for everything not
+    # yet curated (see flow_process_stages's own gap about coverage).
+    stages = atomic.flow_process_stages(ctx, process)
+
     docs = atomic.search_knowledge(ctx, process, source="wiki", limit=10)
     code = atomic.search_knowledge(ctx, process, source="code", asset=asset,
                                    limit=10)
-    if docs.outcome == UNKNOWN and code.outcome == UNKNOWN:
+    if docs.outcome == UNKNOWN and code.outcome == UNKNOWN \
+            and stages.outcome == UNKNOWN:
         return unknown(
             "composite.process_description", process,
-            f"No documentation or code matches {process!r} well enough to "
-            f"describe a process.",
+            f"No curated process, documentation, or code matches "
+            f"{process!r} well enough to describe a process.",
             needed=["a process name closer to the wiki's own wording",
                     "`eck search` will show what vocabulary the estate uses"])
+
+    if stages.outcome != UNKNOWN:
+        parts = {"stages": stages, "documentation": docs, "implementation": code}
+        return _merge(
+            "composite.process_description", process, parts,
+            guidance=(
+                "This process has a curated CAP-4 definition: present the "
+                "'stages' section as the authoritative ordered description — "
+                "stage order, entry points, handovers and failure paths are "
+                "verified, not search results. Use documentation/"
+                "implementation only to add colour beyond what the curated "
+                "stages already cover. Keep curated and derived evidence "
+                "visibly separate (BR-20)."))
 
     anchored = ctx.store.query("""
         SELECT * FROM anchor WHERE state IN ('resolved','stale')
         ORDER BY confidence DESC LIMIT 20""")
 
     parts = {"documentation": docs, "implementation": code}
-    gaps = ["Ordered stages, handovers, failure paths and effects require "
-            "CAP-4 process modelling, which is NOT built (M6). This returns "
-            "relevant material, not a verified end-to-end sequence."]
+    gaps = [f"{process!r} has no curated CAP-4 process definition — this "
+           f"returns relevant material found by search, not a verified "
+           f"end-to-end sequence. See flow.process_stages for what is "
+           f"curated so far."]
     if not anchored:
         gaps.append("No approved anchors exist, so nothing here is a verified "
                     "link between documentation and code (BR-16 unmet).")
@@ -202,7 +224,7 @@ def process_description(ctx: Context, process: str,
             "Present the curated documentation first as the business view, "
             "attributed as curated, then the implementation as derived fact — "
             "keeping the two visibly separate (BR-20). State up front that "
-            "the platform cannot yet confirm stage ORDER, so this is "
-            "supporting material for understanding the process, not an "
-            "authoritative description of it."),
+            "the platform cannot yet confirm stage ORDER for this process, "
+            "so this is supporting material for understanding it, not an "
+            "authoritative description."),
         extra_gaps=gaps)
