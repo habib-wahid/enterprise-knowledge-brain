@@ -1,0 +1,127 @@
+# CAP-1 — Estate Register
+#
+# This file is the ONLY place that says what is in scope (BR-01, BR-05).
+# Adding, removing or rescoping an asset must be a change to this file alone
+# and nothing else (BR-02). No path below may be hardcoded anywhere in eck/.
+
+version: 1
+
+estate:
+  id: INTEACC-HCM
+  name: "Inteacc Human Capital Management"
+  platform: "Jmix 2.8.1 / Spring Boot / Vaadin Flow"
+  vcs: "https://gitlab.bracits.com/brac/payroll/inteacc-payroll.git"
+
+defaults:
+  tech: jmix
+  # BR-73: every asset needs a named accountable owner. UNASSIGNED is a
+  # deliberate, visible gap — the coverage report counts it. It is not a
+  # placeholder to be quietly ignored.
+  owner: UNASSIGNED
+  exclusions:
+    - path: "**/build/**"
+      reason: "Gradle build output — not authored source"
+    - path: "**/bin/**"
+      reason: "IDE output directory — duplicates src/main"
+    - path: "**/generated/**"
+      reason: "Generated code — not authored business logic (BR-04)"
+    - path: "**/src/test/**"
+      reason: "Test code describes intended behaviour, not current production behaviour"
+
+sources:
+  code:
+    root: /Users/md.habiburrahman/inteacc-payroll
+    kind: git
+  wiki:
+    root: sources/hrishelp-wiki
+    kind: git
+    origin: "https://github.com/inteacc/hrishelp.wiki.git"
+
+# --- Code assets: one per independently-built Jmix module -------------------
+# Each module has its own settings.gradle, so "asset" == "module" here (BR-03).
+
+assets:
+  - id: HR
+    name: "HR & Payroll"
+    role: "Employee lifecycle, salary structure, payroll processing and salary payment"
+    path: inteacchr
+
+  - id: MDG
+    name: "Master Data Governance"
+    role: "Organisation, position, grade and reference master data shared across modules"
+    path: inteaccmdg
+
+  - id: HRMD
+    name: "HR Master Data"
+    role: "Employee master records and HR reference data"
+    path: inteacchrmd
+
+  - id: FUND
+    name: "Funds Management"
+    role: "Provident fund and gratuity administration"
+    path: inteaccfund
+
+  - id: BDITAX
+    name: "Bangladesh Income Tax"
+    role: "Statutory income tax calculation and reporting for Bangladesh"
+    path: inteaccbditax
+
+  - id: LOAN
+    name: "Loan Management"
+    role: "Employee loan issuance, installments and payroll recovery"
+    path: inteaccloan
+
+  - id: INTEG
+    name: "Integration"
+    role: "Interfaces to external and downstream systems"
+    path: inteaccinteg
+
+  - id: DPS
+    name: "Deposit Pension Scheme"
+    role: "DPS enrolment, contribution and maturity handling"
+    path: inteaccdps
+
+  - id: CORE
+    name: "Platform Core"
+    role: "Application entry point, shared handlers and cross-module configuration"
+    path: inteacc
+
+  - id: GEN
+    name: "General"
+    role: "Shared general-purpose utilities and reference screens"
+    path: inteaccgen
+
+  - id: MSG
+    name: "Messaging"
+    role: "Message templates and outbound communication"
+    path: inteaccmsg
+
+  - id: HDOC
+    name: "Document Handling"
+    role: "Document attachment and retrieval"
+    path: inteacchdoc
+
+  - id: DB
+    name: "Database Support"
+    role: "Shared database configuration and Liquibase changelogs"
+    path: inteaccdb
+
+  - id: NOTIF
+    name: "Notifications"
+    role: "In-app and outbound notification delivery"
+    path: inteaccnotif
+
+  - id: CMP
+    name: "Component Support"
+    role: "Shared UI component extensions"
+    path: inteacccmp
+
+# --- Knowledge assets ------------------------------------------------------
+# Curated documentation. Ingested as MEANING (CAP-3), never as structure.
+
+  - id: WIKI
+    name: "HRIS Help Wiki"
+    role: "Human-authored functional documentation for the HCM product"
+    path: "."
+    source: wiki
+    tech: markdown

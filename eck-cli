@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Works from any directory: resolve the project root from this script's
+# location and put it on PYTHONPATH rather than relying on the caller's cwd.
+set -e
+root="$(cd "$(dirname "$0")" && pwd)"
+
+if [ ! -x "$root/.venv/bin/python" ]; then
+  echo "eck: no virtualenv at $root/.venv" >&2
+  echo "     python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt" >&2
+  exit 1
+fi
+
+PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}" \
+  exec "$root/.venv/bin/python" -m eck.cli "$@"

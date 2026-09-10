@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise Code Knowledge Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F5F6F4; --surface:#FFF; --surface-2:#ECEFEC; --ink:#16211E;
+  --ink-2:#3B4844; --muted:#5E6B66; --rule:#DBE0DC; --rule-2:#C3CBC6;
+  --accent:#0F5C4E; --accent-soft:#E1EDE8;
+  --warn:#8A5A0B; --warn-soft:#F6EEDE;
+  --danger:#9B2C1F; --danger-soft:#F7E7E3;
+  --curated:#6B3FA0; --curated-soft:#EFE8F7;
+  --serif:"Newsreader",Georgia,serif;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --ground:#101512; --surface:#171E1A; --surface-2:#1E2622; --ink:#E5EAE7;
+  --ink-2:#C3CCC8; --muted:#93A09A; --rule:#2A332F; --rule-2:#3A453F;
+  --accent:#62D2B6; --accent-soft:#18302A;
+  --warn:#DCA84C; --warn-soft:#302716;
+  --danger:#E8907F; --danger-soft:#331C18;
+  --curated:#B79BE0; --curated-soft:#241C33;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+ font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+header{background:var(--surface);border-bottom:1px solid var(--rule-2);
+ position:sticky;top:0;z-index:20}
+.bar{max-width:1280px;margin:0 auto;padding:14px 24px;display:flex;
+ align-items:center;gap:18px;flex-wrap:wrap}
+.brand{font-family:var(--serif);font-size:19px;letter-spacing:-.01em;
+ white-space:nowrap}
+.brand span{color:var(--accent)}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+nav button{background:none;border:1px solid transparent;color:var(--ink-2);
+ padding:6px 13px;border-radius:4px;font-size:13.5px}
+nav button:hover{background:var(--surface-2)}
+nav button[aria-current=true]{background:var(--accent-soft);color:var(--accent);
+ border-color:var(--accent);font-weight:600}
+.pill{font-family:var(--mono);font-size:11px;color:var(--muted);
+ border:1px solid var(--rule-2);border-radius:20px;padding:3px 11px;
+ white-space:nowrap}
+
+main{max-width:1280px;margin:0 auto;padding:26px 24px 90px}
+h2{font-family:var(--serif);font-weight:500;font-size:1.6rem;margin:0 0 4px;
+ letter-spacing:-.015em}
+.sub{color:var(--muted);font-size:13.5px;margin:0 0 20px;max-width:70ch}
+section[hidden]{display:none}
+
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+ margin-bottom:16px;overflow:hidden}
+.card-h{padding:11px 16px;border-bottom:1px solid var(--rule);
+ background:var(--surface-2);font-family:var(--mono);font-size:11.5px;
+ color:var(--muted);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.card-b{padding:16px}
+
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text],select,textarea{font:inherit;font-size:14px;padding:8px 11px;
+ border:1px solid var(--rule-2);border-radius:4px;background:var(--surface);
+ color:var(--ink);min-width:0}
+input[type=text]{flex:1;min-width:220px}
+.btn{background:var(--accent);color:#fff;border:1px solid var(--accent);
+ padding:8px 18px;border-radius:4px;font-size:14px}
+.btn.ghost{background:var(--surface);color:var(--ink-2);border-color:var(--rule-2)}
+.btn.danger{background:var(--surface);color:var(--danger);border-color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;
+ border-radius:3px;padding:2px 7px;white-space:nowrap;border:1px solid transparent}
+.t-answered{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.t-partial{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.t-unknown{background:var(--danger-soft);color:var(--danger);border-color:var(--danger)}
+.t-derived{background:var(--surface-2);color:var(--muted);border-color:var(--rule-2)}
+.t-curated{background:var(--curated-soft);color:var(--curated);border-color:var(--curated)}
+.t-inferred{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+
+pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.6;
+ background:var(--ground);border:1px solid var(--rule);border-radius:4px;
+ padding:12px;overflow-x:auto;max-height:420px;white-space:pre}
+code{font-family:var(--mono);font-size:.87em;background:var(--surface-2);
+ padding:1px 5px;border-radius:3px}
+.mono{font-family:var(--mono);font-size:12px;color:var(--muted);
+ word-break:break-all}
+
+.ev{display:block;width:100%;text-align:left;background:var(--surface);
+ border:1px solid var(--rule);border-radius:4px;padding:9px 12px;
+ margin-bottom:7px}
+.ev:hover{border-color:var(--accent)}
+.ev .fq{font-family:var(--mono);font-size:12px;word-break:break-all}
+.ev .lo{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
+
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+ padding:14px 16px}
+.stat .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--serif);font-size:1.9rem;line-height:1.15;margin-top:5px;
+ font-variant-numeric:tabular-nums}
+.stat .n{font-size:12.5px;color:var(--muted);margin-top:3px}
+.meter{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;
+ margin-top:9px}
+.meter i{display:block;height:100%;background:var(--accent)}
+.meter.warn i{background:var(--warn)}
+
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);
+ padding:12px 16px;border-radius:0 4px 4px 0;margin-bottom:16px;font-size:14px}
+.note.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+.note.bad{border-left-color:var(--danger);background:var(--danger-soft)}
+.note b{display:block;font-family:var(--mono);font-size:10.5px;
+ letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+
+ul.gaps{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink-2)}
+ul.gaps li{margin-bottom:5px}
+
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
+ text-transform:uppercase;color:var(--muted);padding:0 12px 7px 0;
+ border-bottom:1px solid var(--rule-2)}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.scroll{overflow-x:auto}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+.split>div{padding:15px;min-width:0}
+.split>div+div{border-left:1px solid var(--rule)}
+@media(max-width:920px){.split>div+div{border-left:0;border-top:1px solid var(--rule)}}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--accent);margin-bottom:7px}
+.stmt{white-space:pre-wrap;font-size:14px}
+
+dialog{border:1px solid var(--rule-2);border-radius:6px;padding:0;max-width:1000px;
+ width:92vw;background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg-h{padding:13px 18px;border-bottom:1px solid var(--rule);display:flex;
+ justify-content:space-between;gap:14px;align-items:center;
+ background:var(--surface-2)}
+.dlg-b{padding:16px;max-height:72vh;overflow:auto}
+.ln{color:var(--muted);user-select:none}
+
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--rule-2);
+ border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;
+ vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.empty{padding:34px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">Enterprise <span>Code Knowledge</span></div>
+    <nav id="nav">
+      <button data-v="ask" aria-current="true">Ask</button>
+      <button data-v="search">Search</button>
+      <button data-v="estate">Estate</button>
+      <button data-v="coverage">Coverage</button>
+      <button data-v="review">Review</button>
+      <button data-v="audit">Audit</button>
+    </nav>
+    <span class="pill" id="freshness">loading…</span>
+  </div>
+</header>
+
+<main>
+  <!-- ASK -->
+  <section id="v-ask">
+    <h2>Ask a question</h2>
+    <p class="sub">Fifteen read-only services. Every answer carries its source
+      locations, separates derived fact from curated interpretation, and says
+      plainly when it does not know.</p>
+    <div class="card"><div class="card-b">
+      <div class="row" style="margin-bottom:10px">
+        <select id="svc" style="min-width:270px"></select>
+        <span class="pill" id="svc-kind"></span>
+      </div>
+      <p class="sub" id="svc-when" style="margin:0 0 12px"></p>
+      <div id="svc-inputs" class="row" style="margin-bottom:12px"></div>
+      <div class="row">
+        <button class="btn" id="run">Run service</button>
+        <span id="run-state" class="mono"></span>
+      </div>
+    </div></div>
+    <div id="ask-out"></div>
+  </section>
+
+  <!-- SEARCH -->
+  <section id="v-search" hidden>
+    <h2>Search knowledge</h2>
+    <p class="sub">Hybrid retrieval — keyword and meaning, fused. Ask in
+      ordinary business language; you do not need to know a technical name.</p>
+    <div class="card"><div class="card-b">
+      <div class="row">
+        <input type="text" id="q" placeholder="how do we stop paying someone who has left">
+        <select id="q-source">
+          <option value="">wiki and code</option>
+          <option value="wiki">curated wiki only</option>
+          <option value="code">derived code only</option>
+        </select>
+        <select id="q-asset"><option value="">all assets</option></select>
+        <button class="btn" id="go">Search</button>
+      </div>
+    </div></div>
+    <div id="search-out"></div>
+  </section>
+
+  <!-- ESTATE -->
+  <section id="v-estate" hidden>
+    <h2>Registered estate</h2>
+    <p class="sub">Everything in scope, and only what is in scope. Adding or
+      removing an application is a change to the register alone.</p>
+    <div id="estate-out"></div>
+  </section>
+
+  <!-- COVERAGE -->
+  <section id="v-coverage" hidden>
+    <h2>Coverage and freshness</h2>
+    <p class="sub">What the platform interpreted, and what it could not. A
+      coverage number nobody can see is the same as no coverage number.</p>
+    <div id="coverage-out"></div>
+  </section>
+
+  <!-- REVIEW -->
+  <section id="v-review" hidden>
+    <h2>Anchor review</h2>
+    <p class="sub">Is this business statement actually implemented here? Approve
+      only if the code implements, enforces or represents it — being about the
+      same topic is not enough.</p>
+    <div class="card"><div class="card-b"><div class="row">
+      <label class="mono">reviewer</label>
+      <input type="text" id="reviewer" style="max-width:210px" placeholder="your name">
+      <select id="anchor-state">
+        <option value="proposed">awaiting review</option>
+        <option value="approved">approved</option>
+        <option value="rejected">rejected</option>
+      </select>
+      <span class="pill" id="anchor-counts"></span>
+    </div></div></div>
+    <div id="review-out"></div>
+  </section>
+
+  <!-- AUDIT -->
+  <section id="v-audit" hidden>
+    <h2>Access log</h2>
+    <p class="sub">Every API call: who asked, what they asked, and when.
+      Recorded openly rather than silently.</p>
+    <div id="audit-out"></div>
+  </section>
+</main>
+
+<dialog id="src">
+  <div class="dlg-h">
+    <span class="mono" id="src-title"></span>
+    <button class="btn ghost" onclick="document.getElementById('src').close()">Close</button>
+  </div>
+  <div class="dlg-b"><pre id="src-body"></pre></div>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (t, c, x) => { const n = document.createElement(t);
+  if (c) n.className = c; if (x !== undefined) n.textContent = x; return n; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const api = async (p) => {
+  const r = await fetch(p);
+  if (!r.ok) { let d; try { d = await r.json(); } catch { d = {detail: r.statusText}; }
+    throw new Error(typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail)); }
+  return r.json();
+};
+let CAT = [], COV = null;
+
+/* ---------------- navigation ---------------- */
+const VIEWS = ['ask','search','estate','coverage','review','audit'];
+$('#nav').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  show(b.dataset.v);
+});
+function show(v, push = true){
+  if (!VIEWS.includes(v)) v = 'ask';
+  if (push && location.hash.slice(1) !== v) location.hash = v;
+  VIEWS.forEach(k => $('#v-' + k).hidden = (k !== v));
+  document.querySelectorAll('#nav button').forEach(b =>
+    b.setAttribute('aria-current', String(b.dataset.v === v)));
+  if (v === 'estate') loadEstate();
+  if (v === 'coverage') loadCoverage();
+  if (v === 'review') loadAnchors();
+  if (v === 'audit') loadAudit();
+}
+
+/* ---------------- shared render ---------------- */
+function tag(text, cls){ const s = el('span', 'tag ' + cls, text); return s; }
+
+function evidenceList(evidence){
+  const box = el('div');
+  evidence.forEach(e => {
+    const b = el('button', 'ev');
+    const top = el('div');
+    top.appendChild(tag(e.origin, 't-' + e.origin));
+    const f = el('span', 'fq', ' ' + e.fqn);
+    top.appendChild(f);
+    b.appendChild(top);
+    b.appendChild(el('div', 'lo', `${e.asset_id} · ${e.path}:${e.start_line}-${e.end_line}`));
+    b.onclick = () => openSource(e.asset_id, e.path, e.start_line, e.end_line);
+    box.appendChild(b);
+  });
+  return box;
+}
+
+async function openSource(asset, path, start, end){
+  $('#src-title').textContent = `${asset} · ${path}:${start}-${end}`;
+  $('#src-body').textContent = 'loading…';
+  $('#src').showModal();
+  try {
+    const pad = 6;
+    const d = await api(`/api/source?asset=${encodeURIComponent(asset)}&path=${encodeURIComponent(path)}&start=${Math.max(1,start-pad)}&end=${end+pad}`);
+    const w = String(d.end_line).length;
+    $('#src-body').innerHTML = d.lines.map(l => {
+      const hit = l.n >= start && l.n <= end;
+      const num = `<span class="ln">${String(l.n).padStart(w)}</span>`;
+      const txt = esc(l.text);
+      return hit ? `${num}  <b>${txt}</b>` : `${num}  ${txt}`;
+    }).join('\n');
+  } catch (err) { $('#src-body').textContent = 'Error: ' + err.message; }
+}
+
+/* ---------------- ask ---------------- */
+function buildServicePicker(){
+  const sel = $('#svc');
+  sel.innerHTML = '';
+  CAT.forEach(c => {
+    const o = el('option', null, `${c.id} — ${c.question}`);
+    o.value = c.id; sel.appendChild(o);
+  });
+  sel.onchange = renderInputs;
+  renderInputs();
+}
+function renderInputs(){
+  const c = CAT.find(x => x.id === $('#svc').value);
+  $('#svc-kind').textContent = c.composite ? 'composite' : 'atomic';
+  $('#svc-when').textContent = c.when_to_use;
+  const box = $('#svc-inputs'); box.innerHTML = '';
+  Object.entries(c.inputs).forEach(([k, desc]) => {
+    const i = el('input'); i.type = 'text'; i.id = 'in-' + k;
+    i.placeholder = `${k}${c.required.includes(k) ? ' (required)' : ''} — ${desc}`;
+    i.onkeydown = e => { if (e.key === 'Enter') runService(); };
+    box.appendChild(i);
+  });
+  if (!Object.keys(c.inputs).length)
+    box.appendChild(el('span', 'mono', 'no arguments'));
+}
+$('#run').onclick = runService;
+async function runService(){
+  const c = CAT.find(x => x.id === $('#svc').value);
+  const qs = new URLSearchParams();
+  Object.keys(c.inputs).forEach(k => {
+    const v = ($('#in-' + k) || {}).value || '';
+    if (v.trim()) qs.set(k, v.trim());
+  });
+  $('#run-state').innerHTML = '<span class="spin"></span> running…';
+  $('#ask-out').innerHTML = '';
+  try {
+    const r = await api(`/api/services/${c.id}?` + qs.toString());
+    $('#ask-out').innerHTML = '';
+    $('#ask-out').appendChild(renderResult(r));
+  } catch (err) {
+    $('#ask-out').innerHTML =
+      `<div class="note bad"><b>request failed</b>${esc(err.message)}</div>`;
+  } finally { $('#run-state').textContent = ''; }
+}
+
+function renderResult(r){
+  const card = el('div', 'card');
+  const h = el('div', 'card-h');
+  h.appendChild(tag(r.outcome, 't-' + r.outcome));
+  h.appendChild(el('span', null, r.service));
+  h.appendChild(el('span', null, '· ' + r.question));
+  card.appendChild(h);
+
+  const b = el('div', 'card-b');
+
+  if (r.outcome === 'unknown'){
+    const n = el('div', 'note bad');
+    n.appendChild(el('b', null, 'the platform does not know'));
+    n.appendChild(el('div', null,
+      (r.findings[0] && r.findings[0].statement) || ''));
+    b.appendChild(n);
+  }
+
+  (r.findings || []).forEach(f => {
+    if (f.section){
+      const s = el('div', null);
+      const hd = el('div', 'row');
+      hd.style.marginBottom = '6px';
+      hd.appendChild(tag(f.outcome, 't-' + f.outcome));
+      hd.appendChild(el('strong', null, f.section.replace(/_/g, ' ')));
+      s.appendChild(hd);
+      const p = el('pre');
+      p.style.maxHeight = '210px';
+      p.textContent = (f.detail || []).map(d => JSON.stringify(d)).join('\n');
+      s.appendChild(p);
+      s.style.marginBottom = '14px';
+      b.appendChild(s);
+    } else {
+      const p = el('pre');
+      p.style.marginBottom = '10px';
+      p.textContent = JSON.stringify(f, null, 1);
+      b.appendChild(p);
+    }
+  });
+
+  if (r.needed && r.needed.length){
+    const n = el('div', 'note warn');
+    n.appendChild(el('b', null, 'what would be needed'));
+    const ul = el('ul', 'gaps');
+    r.needed.forEach(x => ul.appendChild(el('li', null, x)));
+    n.appendChild(ul);
+    b.appendChild(n);
+  }
+
+  if (r.evidence && r.evidence.length){
+    b.appendChild(el('div', 'lbl', `evidence — ${r.evidence.length} source reference(s)`));
+    b.appendChild(evidenceList(r.evidence));
+  }
+
+  if (r.gaps && r.gaps.length){
+    const n = el('div', 'note warn');
+    n.appendChild(el('b', null, 'gaps — what this answer does not cover'));
+    const ul = el('ul', 'gaps');
+    r.gaps.forEach(x => ul.appendChild(el('li', null, x)));
+    n.appendChild(ul);
+    b.appendChild(n);
+  }
+
+  const g = el('div', 'note');
+  g.appendChild(el('b', null, 'how to present this'));
+  g.appendChild(el('div', null, r.presentation_guidance));
+  b.appendChild(g);
+
+  card.appendChild(b);
+  return card;
+}
+
+/* ---------------- search ---------------- */
+$('#go').onclick = doSearch;
+$('#q').onkeydown = e => { if (e.key === 'Enter') doSearch(); };
+async function doSearch(){
+  const q = $('#q').value.trim(); if (!q) return;
+  const out = $('#search-out');
+  out.innerHTML = '<div class="empty"><span class="spin"></span> searching…</div>';
+  const qs = new URLSearchParams({q, limit: 12});
+  if ($('#q-source').value) qs.set('source', $('#q-source').value);
+  if ($('#q-asset').value) qs.set('asset', $('#q-asset').value);
+  try {
+    const d = await api('/api/search?' + qs);
+    out.innerHTML = '';
+    if (d.verdict === 'weak'){
+      out.innerHTML = `<div class="note warn"><b>weak match</b>
+        Nothing cleared the confidence threshold. Treat these as leads, not as
+        an answer — the platform does not guess.</div>`;
+    }
+    if (!d.hits.length){
+      out.innerHTML += `<div class="card"><div class="empty">
+        No relevant knowledge found.</div></div>`; return;
+    }
+    d.hits.forEach(h => {
+      const c = el('div', 'card');
+      const hd = el('div', 'card-h');
+      hd.appendChild(tag(h.source === 'wiki' ? 'curated' : 'derived',
+                         h.source === 'wiki' ? 't-curated' : 't-derived'));
+      hd.appendChild(el('span', null, h.asset));
+      hd.appendChild(el('span', null, `${h.matched_by}${h.similarity ? ' · cos ' + h.similarity : ''}`));
+      c.appendChild(hd);
+      const b = el('div', 'card-b');
+      b.appendChild(el('div', null, h.heading));
+      const loc = el('button', 'ev');
+      loc.appendChild(el('div', 'lo', `${h.path}:${h.start_line}-${h.end_line}`));
+      loc.onclick = () => openSource(h.asset, h.path, h.start_line, h.end_line);
+      b.appendChild(loc);
+      const p = el('pre'); p.style.maxHeight = '160px'; p.textContent = h.excerpt;
+      b.appendChild(p);
+      c.appendChild(b); out.appendChild(c);
+    });
+  } catch (err){
+    out.innerHTML = `<div class="note bad"><b>search failed</b>${esc(err.message)}</div>`;
+  }
+}
+
+/* ---------------- estate ---------------- */
+async function loadEstate(){
+  const out = $('#estate-out');
+  out.innerHTML = '<div class="empty"><span class="spin"></span> loading…</div>';
+  const d = await api('/api/estate');
+  out.innerHTML = '';
+  const head = el('div', 'card');
+  const hb = el('div', 'card-b');
+  hb.appendChild(el('div', null, d.estate.name));
+  hb.appendChild(el('div', 'mono',
+    `${d.estate.platform} · register sha256:${d.estate.register_sha.slice(0,16)}`));
+  head.appendChild(hb); out.appendChild(head);
+
+  const grid = el('div', 'grid g2');
+  d.assets.forEach(a => {
+    const c = el('div', 'card');
+    const h = el('div', 'card-h');
+    h.appendChild(el('span', null, a.id));
+    h.appendChild(el('span', null, a.tech));
+    if (a.commit) h.appendChild(el('span', null, a.commit.slice(0,8)));
+    c.appendChild(h);
+    const b = el('div', 'card-b');
+    b.appendChild(el('strong', null, a.name));
+    b.appendChild(el('div', null, a.role));
+    const k = Object.entries(a.kinds).sort((x,y) => y[1]-x[1]).slice(0,6);
+    const kb = el('div', 'row'); kb.style.marginTop = '9px';
+    k.forEach(([kind,n]) => kb.appendChild(tag(`${kind} ${n.toLocaleString()}`, 't-derived')));
+    b.appendChild(kb);
+    if (a.owner === 'UNASSIGNED'){
+      const w = el('div', 'note warn'); w.style.margin = '10px 0 0';
+      w.appendChild(el('b', null, 'BR-73 gap'));
+      w.appendChild(el('div', null, 'no named owner accountable for this asset'));
+      b.appendChild(w);
+    }
+    c.appendChild(b); grid.appendChild(c);
+  });
+  out.appendChild(grid);
+
+  const ex = el('div', 'card');
+  ex.appendChild(Object.assign(el('div','card-h'), {textContent:'exclusions — every one carries a reason'}));
+  const eb = el('div', 'card-b scroll');
+  const t = el('table');
+  t.innerHTML = '<tr><th>glob</th><th>reason</th></tr>' + d.exclusions.map(e =>
+    `<tr><td><code>${esc(e.glob)}</code></td><td>${esc(e.reason)}</td></tr>`).join('');
+  eb.appendChild(t); ex.appendChild(eb); out.appendChild(ex);
+}
+
+/* ---------------- coverage ---------------- */
+function statTile(k, v, n, pct, warn){
+  const s = el('div', 'stat');
+  s.appendChild(el('div', 'k', k));
+  s.appendChild(el('div', 'v', v));
+  if (n) s.appendChild(el('div', 'n', n));
+  if (pct !== undefined){
+    const m = el('div', 'meter' + (warn ? ' warn' : ''));
+    const i = el('i'); i.style.width = Math.max(0, Math.min(100, pct)) + '%';
+    m.appendChild(i); s.appendChild(m);
+  }
+  return s;
+}
+async function loadCoverage(){
+  const out = $('#coverage-out');
+  out.innerHTML = '<div class="empty"><span class="spin"></span> loading…</div>';
+  const d = COV = await api('/api/coverage');
+  out.innerHTML = '';
+
+  const g = el('div', 'grid g3');
+  g.appendChild(statTile('nodes derived', d.totals.nodes.toLocaleString(),
+    Object.keys(d.nodes_by_kind).length + ' kinds'));
+  g.appendChild(statTile('relationships', d.totals.edges.toLocaleString(),
+    `${(d.edges_by_origin.inferred||0).toLocaleString()} inferred`));
+  g.appendChild(statTile('call resolution', d.calls.resolution_pct + '%',
+    `${d.calls.unresolved.toLocaleString()} unresolved`, d.calls.resolution_pct, true));
+  g.appendChild(statTile('chunks embedded', d.index.embedded_pct + '%',
+    `${d.index.chunks.toLocaleString()} chunks`, d.index.embedded_pct));
+  g.appendChild(statTile('statements anchored', d.anchors.anchored_pct + '%',
+    `${d.anchors.anchored_statements} of ${d.anchors.wiki_statements}`,
+    d.anchors.anchored_pct, true));
+  g.appendChild(statTile('last refresh', d.run.started_at.slice(0,10),
+    d.run.status + ' · ' + d.run.started_at.slice(11,19)));
+  out.appendChild(g);
+
+  const mk = (title, obj) => {
+    const c = el('div', 'card');
+    c.appendChild(Object.assign(el('div','card-h'), {textContent: title}));
+    const b = el('div', 'card-b scroll');
+    const t = el('table');
+    t.innerHTML = Object.entries(obj).map(([k,v]) =>
+      `<tr><td><code>${esc(k)}</code></td><td style="text-align:right;font-variant-numeric:tabular-nums">${v.toLocaleString()}</td></tr>`).join('');
+    b.appendChild(t); c.appendChild(b); return c;
+  };
+  const two = el('div', 'grid g2');
+  two.appendChild(mk('structure by kind', d.nodes_by_kind));
+  two.appendChild(mk('relationships by kind', d.edges_by_kind));
+  two.appendChild(mk('facts vs inference', d.edges_by_origin));
+  two.appendChild(mk('unresolved, by reason', d.calls.unresolved_by_reason));
+  out.appendChild(two);
+
+  const gaps = el('div', 'note warn');
+  gaps.appendChild(el('b', null, 'known gaps — stated, not hidden'));
+  const ul = el('ul', 'gaps');
+  d.gaps.forEach(x => ul.appendChild(el('li', null, x)));
+  gaps.appendChild(ul); out.appendChild(gaps);
+}
+
+/* ---------------- review ---------------- */
+$('#anchor-state').onchange = loadAnchors;
+async function loadAnchors(){
+  const out = $('#review-out');
+  out.innerHTML = '<div class="empty"><span class="spin"></span> loading…</div>';
+  const state = $('#anchor-state').value;
+  const d = await api(`/api/anchors?state=${state}&limit=30`);
+  $('#anchor-counts').textContent =
+    `${d.counts.proposed} awaiting · ${d.counts.approved} approved · ${d.counts.rejected} rejected`;
+  out.innerHTML = '';
+  if (!d.anchors.length){
+    out.innerHTML = `<div class="card"><div class="empty">Nothing here.
+      Run <code>eck anchors propose</code> to generate candidates.</div></div>`;
+    return;
+  }
+  d.anchors.forEach(a => out.appendChild(anchorCard(a, state)));
+}
+
+function anchorCard(a, state){
+  const c = el('div', 'card');
+  const h = el('div', 'card-h');
+  h.appendChild(el('span', null, `${a.target_asset} · ${a.target_kind || '?'}`));
+  h.appendChild(el('span', null, `confidence ${a.confidence.toFixed(3)}`));
+  h.appendChild(el('span', null, `by ${a.proposer}`));
+  if (a.live_state) h.appendChild(tag(a.live_state,
+    a.live_state === 'resolved' ? 't-answered'
+      : a.live_state === 'broken' ? 't-unknown' : 't-partial'));
+  c.appendChild(h);
+
+  const sp = el('div', 'split');
+  const left = el('div');
+  left.appendChild(el('div', 'lbl', 'business statement'));
+  left.appendChild(el('div', 'mono', `${a.doc_path}:${a.doc_start_line}-${a.doc_end_line}`));
+  left.appendChild(el('div', 'stmt', a.statement.slice(0, 2200)));
+  sp.appendChild(left);
+
+  const right = el('div');
+  right.appendChild(el('div', 'lbl', 'software location'));
+  right.appendChild(el('div', 'mono', a.target_fqn));
+  const b = el('button', 'ev');
+  b.appendChild(el('div', 'lo',
+    `${a.target_path}:${a.target_start_line}-${a.target_end_line} — view source`));
+  b.onclick = () => openSource(a.target_asset, a.target_path,
+                               a.target_start_line, a.target_end_line);
+  right.appendChild(b);
+  sp.appendChild(right);
+  c.appendChild(sp);
+
+  const why = el('div', 'card-b');
+  why.style.borderTop = '1px solid var(--rule)';
+  why.appendChild(el('div', 'lbl', 'why it was proposed'));
+  why.appendChild(el('div', null, a.justification));
+
+  if (state === 'proposed'){
+    const row = el('div', 'row'); row.style.marginTop = '12px';
+    const note = el('input'); note.type = 'text';
+    note.placeholder = 'note (optional)';
+    const ok = el('button', 'btn', 'Approve');
+    const no = el('button', 'btn danger', 'Reject');
+    const msg = el('span', 'mono');
+    const decide = async (decision) => {
+      const reviewer = $('#reviewer').value.trim();
+      if (!reviewer){ msg.textContent = 'enter your name first — curated knowledge must be attributable'; return; }
+      ok.disabled = no.disabled = true;
+      msg.innerHTML = '<span class="spin"></span>';
+      try {
+        const r = await fetch('/api/anchors/decide', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({anchor_id: a.id, reviewer, decision,
+                                note: note.value})});
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.detail || 'failed');
+        c.style.opacity = .45;
+        msg.textContent = j.ok ? `${j.status} — ${j.remaining} left`
+                               : `auto-rejected: ${j.reason}`;
+        loadAnchorCounts();
+      } catch (err){ msg.textContent = 'error: ' + err.message;
+                     ok.disabled = no.disabled = false; }
+    };
+    ok.onclick = () => decide('approve');
+    no.onclick = () => decide('reject');
+    row.appendChild(note); row.appendChild(ok); row.appendChild(no);
+    row.appendChild(msg);
+    why.appendChild(row);
+  } else {
+    why.appendChild(el('div', 'mono',
+      `${a.status} by ${a.reviewed_by} at ${a.reviewed_at} ${a.review_note ? '— ' + a.review_note : ''}`));
+  }
+  c.appendChild(why);
+  return c;
+}
+async function loadAnchorCounts(){
+  const d = await api('/api/anchors?state=proposed&limit=1');
+  $('#anchor-counts').textContent =
+    `${d.counts.proposed} awaiting · ${d.counts.approved} approved · ${d.counts.rejected} rejected`;
+}
+
+/* ---------------- audit ---------------- */
+async function loadAudit(){
+  const out = $('#audit-out');
+  const d = await api('/api/audit');
+  out.innerHTML = '';
+  const c = el('div', 'card');
+  const b = el('div', 'card-b scroll');
+  const t = el('table');
+  t.innerHTML = '<tr><th>time</th><th>caller</th><th>path</th><th>query</th><th>status</th></tr>' +
+    d.map(e => `<tr><td class="mono">${esc(e.at)}</td><td class="mono">${esc(e.caller)}</td>
+      <td><code>${esc(e.path)}</code></td>
+      <td class="mono">${esc(JSON.stringify(e.query))}</td>
+      <td>${e.status}</td></tr>`).join('');
+  b.appendChild(t); c.appendChild(b); out.appendChild(c);
+}
+
+/* ---------------- boot ---------------- */
+window.addEventListener('hashchange', () => show(location.hash.slice(1), false));
+
+(async function boot(){
+  show(location.hash.slice(1) || 'ask', false);
+  try {
+    CAT = await api('/api/catalogue');
+    buildServicePicker();
+    const cov = await api('/api/coverage');
+    $('#freshness').textContent =
+      `${cov.run.estate} · refreshed ${cov.run.started_at.slice(0,10)} · ` +
+      `${cov.totals.nodes.toLocaleString()} nodes · ${cov.anchors.anchored_statements} anchored`;
+    const sel = $('#q-asset');
+    cov.assets.forEach(a => {
+      const o = el('option', null, `${a.id} — ${a.name}`); o.value = a.id;
+      sel.appendChild(o);
+    });
+  } catch (err){
+    $('#freshness').textContent = 'backend unreachable';
+  }
+})();
+</script>
+</body>
+</html>
