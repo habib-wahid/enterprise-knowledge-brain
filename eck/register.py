@@ -30,6 +30,7 @@ class Asset:
     tech: str
     source_kind: str          # 'code' | 'wiki'
     abs_path: Path
+    rel_path: str | None = None   # portable: relative to the project root
     exclusions: list[Exclusion] = field(default_factory=list)
     source_commit: str | None = None
 
@@ -42,6 +43,9 @@ class Register:
     assets: list[Asset]
     register_sha: str
     path: Path
+    # Raw source specs, keyed by name ('code', 'wiki', ...). The register is
+    # the only place a remote URL or a path appears (BR-02).
+    sources: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 def _git_commit(repo: Path) -> str | None:
@@ -82,7 +86,13 @@ def load(register_path: Path, project_root: Path) -> Register:
             for e in a.get("exclusions", [])
         ]
 
+        try:
+            rel = str(abs_path.relative_to(Path(project_root).resolve()))
+        except ValueError:
+            rel = None            # source lives outside the project entirely
+
         assets.append(Asset(
+            rel_path=rel,
             id=a["id"],
             name=a["name"],
             role=a["role"],
@@ -101,6 +111,7 @@ def load(register_path: Path, project_root: Path) -> Register:
         assets=assets,
         register_sha=sha256(raw_bytes),
         path=Path(register_path),
+        sources=sources,
     )
 
 
@@ -113,5 +124,10 @@ def validate(reg: Register) -> list[str]:
             problems.append(f"{a.id}: duplicate asset id in register")
         seen.add(a.id)
         if not a.abs_path.exists():
-            problems.append(f"{a.id}: source path does not exist — {a.abs_path}")
+            hint = ""
+            spec = reg.sources.get(a.source_kind, {})
+            if spec.get("origin"):
+                hint = "  — run `eck sources sync` to fetch it"
+            problems.append(
+                f"{a.id}: source path does not exist — {a.abs_path}{hint}")
     return problems

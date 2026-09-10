@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from .. import curated, register
 from ..govern import anchor_check, coverage
 from ..services.registry import REGISTRY, catalogue, get, load_all
+from ..store import source as src
 from ..services.resolve import Context
 from ..store.db import KnowledgeStore, utc_now
 
@@ -150,21 +151,41 @@ def create_app(db_path: Path) -> FastAPI:
     def api_source(asset: str, path: str, start: int = 1, end: int = 0):
         """BR-38 — the full content of a specific source location."""
         store = KnowledgeStore(db_path)
-        rows = store.query("SELECT abs_path FROM asset WHERE id = ?", (asset,))
-        store.close()
+        rows = store.query(
+            "SELECT abs_path, rel_path FROM asset WHERE id = ?", (asset,))
         if not rows:
+            store.close()
             raise HTTPException(404, f"no registered asset {asset!r}")
-        full = Path(rows[0]["abs_path"]) / path
-        try:
-            lines = full.read_text(encoding="utf-8", errors="replace").splitlines()
-        except Exception as exc:
-            raise HTTPException(404, f"cannot read {path}: {exc}") from exc
-        end = end or len(lines)
-        lo, hi = max(1, start), min(len(lines), max(start, end))
-        return {"asset": asset, "path": path, "start_line": lo, "end_line": hi,
-                "total_lines": len(lines),
-                "lines": [{"n": lo + i, "text": t}
-                          for i, t in enumerate(lines[lo - 1:hi])]}
+
+        asset_dir = src.resolve_asset_dir(rows[0]["abs_path"], rows[0]["rel_path"])
+        end = end or 10 ** 9
+        lines, how = src.read_span(asset_dir, path, start, end)
+
+        if how == "filesystem":
+            store.close()
+            lo = max(1, start)
+            return {"asset": asset, "path": path, "start_line": lo,
+                    "end_line": lo + len(lines) - 1, "from": "filesystem",
+                    "lines": [{"n": lo + i, "text": t}
+                              for i, t in enumerate(lines)]}
+
+        # No source on this machine — serve what the index captured, and say so.
+        text = src.indexed_text(store, asset, path, start)
+        store.close()
+        if text is None:
+            raise HTTPException(404, {
+                "error": "source not available on this deployment",
+                "detail": f"{path} is not on disk and no indexed text covers "
+                          f"line {start}",
+                "fix": "mount the estate checkout and set ECK_SOURCES_ROOT, "
+                       "or rebuild the knowledge base where the source lives"})
+        body = text.splitlines()
+        return {"asset": asset, "path": path, "start_line": start,
+                "end_line": start + len(body) - 1, "from": "index",
+                "note": "Source is not checked out on this deployment; this is "
+                        "the text captured when the knowledge base was built.",
+                "lines": [{"n": start + i, "text": t}
+                          for i, t in enumerate(body)]}
 
     # ---------------------------------------------------------------- anchors
 

@@ -16,9 +16,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from .config import curated_dir
 from .store.db import sha256, utc_now
 
-CURATED_DIR = Path(__file__).resolve().parent.parent / "curated"
+CURATED_DIR = curated_dir()
 CANDIDATES = CURATED_DIR / "candidates.jsonl"
 ANCHORS = CURATED_DIR / "anchors.jsonl"
 

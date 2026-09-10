@@ -1,0 +1,8 @@
+.venv/
+build/
+sources/
+deploy/
+.git/
+__pycache__/
+*.pyc
+.env

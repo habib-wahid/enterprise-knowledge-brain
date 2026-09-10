@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..store import source as src
 from .registry import service
 from .resolve import Ambiguous, Context, Subject, resolve
 from .result import ANSWERED, PARTIAL, Evidence, ServiceResult, unknown
@@ -20,15 +21,21 @@ MAX_ROWS = 60
 
 def _excerpt(ctx: Context, asset_id: str, path: str, start: int,
              end: int, limit: int = 6) -> str:
-    rows = ctx.store.query("SELECT abs_path FROM asset WHERE id = ?", (asset_id,))
+    """Source text for evidence, from the filesystem or from the index.
+
+    A serving deployment often has no checked-out source, so this degrades to
+    the text captured at index time rather than returning nothing.
+    """
+    rows = ctx.store.query(
+        "SELECT abs_path, rel_path FROM asset WHERE id = ?", (asset_id,))
     if not rows:
         return ""
-    try:
-        lines = (Path(rows[0]["abs_path"]) / path).read_text(
-            encoding="utf-8", errors="replace").splitlines()
-    except Exception:
-        return ""
-    return "\n".join(lines[start - 1:min(end, start - 1 + limit)])
+    asset_dir = src.resolve_asset_dir(rows[0]["abs_path"], rows[0]["rel_path"])
+    lines, how = src.read_span(asset_dir, path, start, end)
+    if how == "filesystem":
+        return "\n".join(lines[:limit])
+    text = src.indexed_text(ctx.store, asset_id, path, start)
+    return "\n".join((text or "").splitlines()[:limit])
 
 
 def _ev(ctx: Context, row: Any, excerpt: bool = False) -> Evidence:

@@ -38,8 +38,8 @@ def build(reg: Register, out_dir: Path, live_name: str = "knowledge.db",
         store.add_asset(
             id=asset.id, name=asset.name, role=asset.role, owner=asset.owner,
             tech=asset.tech, source_kind=asset.source_kind,
-            abs_path=str(asset.abs_path), source_commit=asset.source_commit,
-            run_id=run_id)
+            abs_path=str(asset.abs_path), rel_path=asset.rel_path,
+            source_commit=asset.source_commit, run_id=run_id)
         store.add_exclusions([
             dict(asset_id=asset.id, path_glob=e.path_glob, reason=e.reason,
                  run_id=run_id) for e in asset.exclusions])
