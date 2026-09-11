@@ -549,7 +549,9 @@ def business_flow(ctx: Context, term: str, max_steps: int = MAX_STEPS,
         section.steps.append({
             "n": i, "title": title or heading, "origin": "curated",
             "text": trim(_strip_heading(r["text"], heading)),
-            "meta": [f"{r['path']}:{r['start_line']}-{r['end_line']}"],
+            # The location travels as a ref, not as a meta string, so the
+            # reader can open the page it was quoted from.
+            "ref": ref(r), "meta": [],
         })
         ev.append(evidence(r, origin="curated", confidence=1.0))
 
