@@ -28,7 +28,7 @@ Six views, all reading the same API the CLI uses:
 
 | View | What it does |
 |---|---|
-| **Ask** | Run any of the 15 services; outcome badge, findings, clickable evidence, gaps, presentation guidance |
+| **Ask** | Pick one of 16 questions, type what it is about, press Ask. Every answer comes back in two halves — the business flow in plain language, then the source-code execution flow — with clickable evidence, stated limits, and an explicit "not known" where the knowledge base is silent |
 | **Search** | Hybrid retrieval with wiki/code and per-asset filters; warns on weak matches |
 | **Estate** | The 16 registered assets, node counts by kind, exclusions with reasons, BR-73 owner gaps |
 | **Coverage** | Resolution / embedding / anchoring meters and the stated gaps |
@@ -203,16 +203,59 @@ Neither publishes. Both write `status: proposed` for human review (BR-21).
 
 ```sh
 ./eck-cli services                       # the catalogue (BR-47, BR-52)
+./eck-cli ask faq.process_steps element="Loan interest calculation"
+./eck-cli ask faq.source_execution_flow element="Loan disbursement"
+./eck-cli ask faq.change_impact element="Modify repayment calculation" --json
 ./eck-cli ask navigation.find element=SalaryPaymentSendBackServiceBean
-./eck-cli ask impact.of_change element=SalaryPaymentSendBackServiceBean depth=2
-./eck-cli ask composite.change_impact element=EmplSalary --json
 ./eck-cli serve                          # same services over HTTP :8800
 ```
 
-**15 services from one registry** — 11 atomic (BR-48: navigation, impact,
+**33 services from one registry**, in two layers.
+
+**The sixteen questions** (`services/faq.py`) are what a person actually asks,
+and what the Ask page offers. Each takes one input — a business process, a
+screen, a class, a table, an exception — and answers in two halves:
+
+| # | Question | Example input |
+|---|---|---|
+| 1 | What are the steps of this business process? | Loan interest calculation |
+| 2 | How does this business functionality work from start to finish? | Loan account modification |
+| 3 | What business rules and validations apply to this functionality? | Salary adjustment |
+| 4 | What is the complete source-code execution flow for this functionality? | Loan disbursement |
+| 5 | Which APIs, classes, methods, and services are involved? | Customer registration |
+| 6 | How does this business process map to the source code? | Loan repayment |
+| 7 | What data is involved, and how does it change? | Account closure |
+| 8 | What happens when this is triggered, and what happens afterward? | Fund transfer |
+| 9 | What conditions or decisions can change the outcome? | Loan approval |
+| 10 | Where is this implemented in the codebase? | Interest calculation |
+| 11 | Why did this error occur, and what is its root cause? | NullPointerException in loan processing |
+| 12 | What is the complete technical flow leading to this error? | Payment processing timeout |
+| 13 | What will be affected if I change this functionality? | Change loan interest rate calculation |
+| 14 | What is the technical and business impact of changing this code? | Modify repayment calculation |
+| 15 | What should I know before changing this functionality? | Loan repayment |
+| 16 | What will be affected if I replace this with the proposed code? | *paste the new code* |
+
+**The building blocks** underneath — 11 atomic (BR-48: navigation, impact,
 flow, checks, effects, explanation, placement, search, detail, configuration,
 status) and 4 composite (BR-49: change_impact, failure_trace,
-input_acceptance, process_description).
+input_acceptance, process_description) — remain callable by id for one precise
+query at a time.
+
+### Two audiences, one answer
+
+Every FAQ answer carries at least one `business` section and one `technical`
+section. The business half is the estate's curated documentation — a CAP-4
+authored process where one exists, otherwise the wiki section that covers the
+topic, quoted in the order the page sets out. The technical half is the call
+graph, arranged as entry point → triggers → application logic → shared and
+cross-application services → entities and tables.
+
+**No sentence is composed.** Business prose is copied from a curated chunk;
+technical steps are node and edge rows, labelled. `services/narrate.py` does
+the ordering and the labelling and nothing else, which is why an answer cannot
+drift from the knowledge base. Where there are no rows, the section says so
+and names what would fill it (BR-55) rather than going quiet or reaching for
+plausible filler.
 
 ### No model is involved
 
@@ -232,8 +275,10 @@ to answer.
 `services/registry.py` is the only definition point. The CLI, the HTTP app
 and (next) the MCP server all enumerate it, so BR-51 and BR-64 hold by
 construction rather than by discipline. `tests/test_services.py` asserts
-this contract — 18 checks including that invoking all 15 services leaves the
-database byte-identical (BR-53).
+this contract — 28 checks including that invoking every service leaves the
+database byte-identical (BR-53), that all sixteen questions narrate into
+sections, that each serves both audiences, and that an empty section states
+why it is empty instead of disappearing.
 
 ## M5 — the MCP server
 

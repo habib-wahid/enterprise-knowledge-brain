@@ -6,162 +6,377 @@
 <title>Enterprise Code Knowledge Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
+/* ---------------------------------------------------------------- tokens
+   One palette, two themes. Green is the only hue that carries meaning on
+   its own — it marks the platform's own voice (labels, actions, curated
+   provenance). Everything factual stays ink and slate, so a green thing on
+   the page is always a thing the platform is asserting, never decoration
+   that happens to be coloured. */
 :root{
-  --ground:#F5F6F4; --surface:#FFF; --surface-2:#ECEFEC; --ink:#16211E;
-  --ink-2:#3B4844; --muted:#5E6B66; --rule:#DBE0DC; --rule-2:#C3CBC6;
-  --accent:#0F5C4E; --accent-soft:#E1EDE8;
-  --warn:#8A5A0B; --warn-soft:#F6EEDE;
-  --danger:#9B2C1F; --danger-soft:#F7E7E3;
-  --curated:#6B3FA0; --curated-soft:#EFE8F7;
-  --serif:"Newsreader",Georgia,serif;
-  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --ground:#EDF5F0; --blob:rgba(126,198,169,.46); --dot:#BDD4C9;
+  --surface:#FFFFFF; --surface-2:#F5F9F7; --surface-3:#EDF4F0;
+  --ink:#14211C; --ink-2:#33413B; --muted:#556259;
+  --rule:#E4EBE7; --rule-2:#D3DDD8;
+  --accent:#13795B; --accent-2:#0E6148; --accent-soft:#E4F2EC;
+  --warn:#8A5A0B; --warn-soft:#FBF3E1;
+  --danger:#9B2C1F; --danger-soft:#FAE9E5;
+  --curated:#6B3FA0; --curated-soft:#F1EBF9;
+  --radius:13px; --radius-lg:20px;
+  --shadow:0 1px 2px rgba(18,42,33,.04), 0 10px 34px rgba(18,42,33,.055);
+  --shadow-sm:0 1px 2px rgba(18,42,33,.05);
+  --lift:0 2px 7px rgba(19,121,91,.24);
+  /* Inter for everything you read at speed — it was drawn for screens at
+     small sizes and stays legible where Plex Sans starts to blur. Source
+     Serif for display: sturdier and warmer than Newsreader, which was too
+     fine-stroked to carry a heading. JetBrains Mono separates 0/O and 1/l/I
+     plainly, which matters when the text is a fully-qualified class name. */
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root{
-  --ground:#101512; --surface:#171E1A; --surface-2:#1E2622; --ink:#E5EAE7;
-  --ink-2:#C3CCC8; --muted:#93A09A; --rule:#2A332F; --rule-2:#3A453F;
-  --accent:#62D2B6; --accent-soft:#18302A;
-  --warn:#DCA84C; --warn-soft:#302716;
-  --danger:#E8907F; --danger-soft:#331C18;
-  --curated:#B79BE0; --curated-soft:#241C33;
+  --ground:#0E1512; --blob:rgba(30,92,73,.34); --dot:#27362F;
+  --surface:#151D19; --surface-2:#1B2420; --surface-3:#222C27;
+  --ink:#E9EEEB; --ink-2:#CDD6D1; --muted:#A6B3AD;
+  --rule:#26302B; --rule-2:#35413B;
+  --accent:#5FD0B3; --accent-2:#7BDCC3; --accent-soft:#16302A;
+  --warn:#DCA84C; --warn-soft:#2E2615;
+  --danger:#E8907F; --danger-soft:#321B17;
+  --curated:#B79BE0; --curated-soft:#231B31;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 34px rgba(0,0,0,.34);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --lift:0 2px 7px rgba(0,0,0,.34);
 }}
+
 *{box-sizing:border-box}
 body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
- font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+ font-size:15px;font-weight:420;line-height:1.62;-webkit-font-smoothing:antialiased;
+ text-rendering:optimizeLegibility}
 a{color:var(--accent)}
 button{font:inherit;cursor:pointer}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
-header{background:var(--surface);border-bottom:1px solid var(--rule-2);
+/* Two soft washes in opposite corners and a pair of dot fields in the side
+   gutters. Fixed and behind everything, so the page scrolls over a still
+   background rather than dragging the decoration with it. */
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+ background:
+   radial-gradient(680px 500px at -6% -10%,  var(--blob) 0%, transparent 58%),
+   radial-gradient(520px 380px at 18%  22%,  var(--blob) 0%, transparent 62%),
+   radial-gradient(760px 560px at 106% 104%, var(--blob) 0%, transparent 58%),
+   radial-gradient(520px 400px at 86%  84%,  var(--blob) 0%, transparent 62%)}
+.deco{position:fixed;z-index:-1;pointer-events:none;width:86px;height:156px;
+ background-image:radial-gradient(var(--dot) 1.5px, transparent 1.6px);
+ background-size:17px 17px}
+.deco-l{left:26px;top:46%}
+.deco-r{right:26px;top:38%}
+@media(max-width:1480px){.deco{display:none}}
+
+/* ---------------------------------------------------------------- header */
+header{background:var(--surface);border-bottom:1px solid var(--rule);
  position:sticky;top:0;z-index:20}
-.bar{max-width:1280px;margin:0 auto;padding:14px 24px;display:flex;
- align-items:center;gap:18px;flex-wrap:wrap}
-.brand{font-family:var(--serif);font-size:19px;letter-spacing:-.01em;
- white-space:nowrap}
-.brand span{color:var(--accent)}
-nav{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
-nav button{background:none;border:1px solid transparent;color:var(--ink-2);
- padding:6px 13px;border-radius:4px;font-size:13.5px}
-nav button:hover{background:var(--surface-2)}
+.bar{max-width:1320px;margin:0 auto;padding:13px 28px;display:flex;
+ align-items:center;gap:20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--serif);
+ font-size:20px;font-weight:600;letter-spacing:-.015em;color:var(--ink);
+ min-width:0;text-decoration:none;border-radius:11px;padding:2px 4px 2px 2px;
+ margin-left:-2px;transition:background .13s}
+.brand:hover{background:var(--surface-2)}
+.brand:hover .mark{background:var(--accent-2)}
+.mark{width:36px;height:36px;border-radius:10px;background:var(--accent);
+ display:grid;place-items:center;flex:none;box-shadow:var(--lift)}
+.mark svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2;
+ stroke-linecap:round;stroke-linejoin:round}
+
+nav{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto;min-width:0}
+nav button{position:relative;background:none;border:0;color:var(--ink-2);
+ padding:9px 17px;border-radius:9px;font-size:14px;font-weight:500;
+ transition:background .13s, color .13s}
+nav button:hover{color:var(--ink);background:var(--surface-2)}
 nav button[aria-current=true]{background:var(--accent-soft);color:var(--accent);
- border-color:var(--accent);font-weight:600}
-.pill{font-family:var(--mono);font-size:11px;color:var(--muted);
- border:1px solid var(--rule-2);border-radius:20px;padding:3px 11px;
- white-space:nowrap}
+ font-weight:600}
+nav button[aria-current=true]::after{content:"";position:absolute;left:50%;
+ bottom:-13px;transform:translateX(-50%);width:26px;height:2.5px;
+ border-radius:2px;background:var(--accent)}
 
-main{max-width:1280px;margin:0 auto;padding:26px 24px 90px}
-h2{font-family:var(--serif);font-weight:500;font-size:1.6rem;margin:0 0 4px;
- letter-spacing:-.015em}
-.sub{color:var(--muted);font-size:13.5px;margin:0 0 20px;max-width:70ch}
+.pill{display:inline-flex;align-items:center;gap:9px;font-size:12px;
+ font-weight:500;color:var(--muted);background:var(--surface-2);
+ border:1px solid var(--rule);
+ border-radius:999px;padding:7px 16px;white-space:nowrap;max-width:100%;
+ overflow:hidden;text-overflow:ellipsis}
+.pill svg{width:14px;height:14px;stroke:var(--accent);fill:none;
+ stroke-width:1.7;flex:none}
+
+/* ---------------------------------------------------------------- shell */
+main{max-width:1320px;margin:0 auto;padding:30px 28px 92px}
+.panel{background:var(--surface);border:1px solid var(--rule);
+ border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:34px 38px 38px}
+/* Below this the header stacks: brand, then the status pill on its own
+   line, then the nav wrapping across as many rows as it needs. Nothing is
+   allowed to hold the page wider than the screen. */
+@media(max-width:860px){
+  main{padding:18px 14px 62px}
+  .panel{padding:24px 18px 28px;border-radius:16px}
+  .bar{padding:12px 16px;gap:12px}
+  .brand{font-size:17.5px}
+  .mark{width:32px;height:32px;border-radius:9px}
+  nav{order:3;width:100%;margin-left:0;justify-content:flex-start}
+  nav button{padding:8px 13px;font-size:13.5px}
+  nav button[aria-current=true]::after{display:none}
+  .pill{order:2;width:100%;white-space:normal;line-height:1.45;
+   align-items:flex-start}
+  .pill svg{margin-top:3px}
+  .page-h{gap:14px}
+  .page-icon{width:42px;height:42px;border-radius:11px}
+  .page-icon svg{width:21px;height:21px}
+  h2{font-size:1.6rem}
+  .card-b{padding:16px}
+}
 section[hidden]{display:none}
+/* The panel is the sheet the content sits on; nothing should push against
+   its bottom edge from the inside. */
+.panel>*:last-child{margin-bottom:0}
+.panel>*:last-child>.card:last-child{margin-bottom:0}
 
-.card{background:var(--surface);border:1px solid var(--rule);border-radius:5px;
- margin-bottom:16px;overflow:hidden}
-.card-h{padding:11px 16px;border-bottom:1px solid var(--rule);
+.page-h{display:flex;gap:18px;align-items:flex-start;margin-bottom:26px}
+.page-icon{width:50px;height:50px;border-radius:13px;background:var(--accent);
+ display:grid;place-items:center;flex:none;box-shadow:var(--lift)}
+.page-icon svg{width:25px;height:25px;stroke:#fff;fill:none;stroke-width:1.7;
+ stroke-linecap:round;stroke-linejoin:round}
+h2{font-family:var(--serif);font-weight:600;font-size:2rem;margin:1px 0 9px;
+ letter-spacing:-.015em;line-height:1.18}
+.sub{color:var(--muted);font-size:14.5px;font-weight:420;margin:0 0 20px;
+ max-width:70ch;line-height:1.68}
+.page-h .sub{margin:0}
+
+/* ---------------------------------------------------------------- cards */
+.card{background:var(--surface);border:1px solid var(--rule);
+ border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.card-h{padding:12px 18px;border-bottom:1px solid var(--rule);
  background:var(--surface-2);font-family:var(--mono);font-size:11.5px;
- color:var(--muted);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.card-b{padding:16px}
+ font-weight:500;color:var(--muted);display:flex;gap:13px;align-items:center;
+ flex-wrap:wrap}
+.card-b{padding:20px}
 
+/* ---------------------------------------------------------------- controls */
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-input[type=text],select,textarea{font:inherit;font-size:14px;padding:8px 11px;
- border:1px solid var(--rule-2);border-radius:4px;background:var(--surface);
- color:var(--ink);min-width:0}
-input[type=text]{flex:1;min-width:220px}
-.btn{background:var(--accent);color:#fff;border:1px solid var(--accent);
- padding:8px 18px;border-radius:4px;font-size:14px}
-.btn.ghost{background:var(--surface);color:var(--ink-2);border-color:var(--rule-2)}
-.btn.danger{background:var(--surface);color:var(--danger);border-color:var(--danger)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+input[type=text],select,textarea{font:inherit;font-size:14.5px;
+ padding:11px 14px;border:1px solid var(--rule-2);border-radius:9px;
+ background:var(--surface);color:var(--ink);min-width:0;
+ transition:border-color .13s, box-shadow .13s}
+input[type=text]{flex:1;min-width:210px}
+input[type=text]::placeholder,textarea::placeholder{color:var(--muted);opacity:.85}
+input[type=text]:focus,select:focus,textarea:focus{outline:none;
+ border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;
+ background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23556259' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+ background-repeat:no-repeat;background-position:right 13px center;
+ background-size:15px}
+@media (prefers-color-scheme:dark){select{
+ background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A6B3AD' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}}
 
+.btn{background:var(--accent);color:#fff;border:1px solid var(--accent);
+ padding:11px 26px;border-radius:9px;font-size:14.5px;font-weight:500;
+ box-shadow:var(--lift);transition:background .13s, border-color .13s}
+/* Each variant owns its own hover. Scoping the base rule away from .ghost
+   and .danger is what stops it reaching past them: `.btn:hover` outranks a
+   plain `.btn.danger`, so an unscoped base hover repaints Reject in the
+   primary green and leaves red text on it — the destructive action dressed
+   as the safe one. */
+.btn:not(.ghost):not(.danger):hover:not(:disabled){background:var(--accent-2);
+ border-color:var(--accent-2)}
+.btn.ghost{background:var(--surface);color:var(--ink-2);
+ border-color:var(--rule-2);box-shadow:none}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2);color:var(--ink);
+ border-color:var(--rule-2)}
+.btn.danger{background:var(--surface);color:var(--danger);
+ border-color:var(--danger);box-shadow:none}
+.btn.danger:hover:not(:disabled){background:var(--danger-soft);
+ color:var(--danger);border-color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+@media (prefers-color-scheme:dark){.btn{color:#08120E}}
+
+.lbl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+ text-transform:uppercase;color:var(--accent);margin-bottom:9px;font-weight:600}
+
+/* ---------------------------------------------------------------- tags */
 .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;
- border-radius:3px;padding:2px 7px;white-space:nowrap;border:1px solid transparent}
+ border-radius:5px;padding:3px 8px;white-space:nowrap;
+ border:1px solid transparent;font-weight:600}
 .t-answered{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .t-partial{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
 .t-unknown{background:var(--danger-soft);color:var(--danger);border-color:var(--danger)}
-.t-derived{background:var(--surface-2);color:var(--muted);border-color:var(--rule-2)}
+.t-derived{background:var(--surface-3);color:var(--muted);border-color:var(--rule-2)}
 .t-curated{background:var(--curated-soft);color:var(--curated);border-color:var(--curated)}
 .t-inferred{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
 
-pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.6;
- background:var(--ground);border:1px solid var(--rule);border-radius:4px;
- padding:12px;overflow-x:auto;max-height:420px;white-space:pre}
-code{font-family:var(--mono);font-size:.87em;background:var(--surface-2);
- padding:1px 5px;border-radius:3px}
-.mono{font-family:var(--mono);font-size:12px;color:var(--muted);
+pre{margin:0;font-family:var(--mono);font-size:12px;font-weight:450;line-height:1.6;
+ background:var(--surface-2);border:1px solid var(--rule);border-radius:9px;
+ padding:13px;overflow-x:auto;max-height:420px;white-space:pre}
+code{font-family:var(--mono);font-size:.87em;font-weight:500;
+ background:var(--surface-3);padding:1px 5px;border-radius:4px}
+.mono{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--muted);
  word-break:break-all}
 
+/* ---------------------------------------------------------------- evidence */
 .ev{display:block;width:100%;text-align:left;background:var(--surface);
- border:1px solid var(--rule);border-radius:4px;padding:9px 12px;
- margin-bottom:7px}
-.ev:hover{border-color:var(--accent)}
-.ev .fq{font-family:var(--mono);font-size:12px;word-break:break-all}
-.ev .lo{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
+ border:1px solid var(--rule);border-radius:9px;padding:9px 13px;
+ margin:9px 0 0;cursor:pointer;
+ transition:border-color .13s, background .13s}
+.ev:hover{border-color:var(--accent);background:var(--surface-2)}
+.ev .fq{font-family:var(--mono);font-size:12px;font-weight:500;
+ word-break:break-all}
+.ev .lo{font-family:var(--mono);font-size:11.5px;font-weight:500;
+ color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
 
+/* ---------------------------------------------------------------- stats */
 .grid{display:grid;gap:14px}
 .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 .g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
-.stat{background:var(--surface);border:1px solid var(--rule);border-radius:5px;
- padding:14px 16px}
-.stat .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
- text-transform:uppercase;color:var(--muted)}
-.stat .v{font-family:var(--serif);font-size:1.9rem;line-height:1.15;margin-top:5px;
- font-variant-numeric:tabular-nums}
-.stat .n{font-size:12.5px;color:var(--muted);margin-top:3px}
-.meter{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;
- margin-top:9px}
-.meter i{display:block;height:100%;background:var(--accent)}
+.stat{background:var(--surface-2);border:1px solid var(--rule);
+ border-radius:var(--radius);padding:16px 18px}
+.stat .k{font-family:var(--mono);font-size:10.5px;font-weight:600;
+ letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--serif);font-weight:600;font-size:2rem;line-height:1.12;
+ margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+ color:var(--ink)}
+.stat .n{font-size:12.5px;font-weight:450;color:var(--muted);margin-top:4px}
+.meter{height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;
+ margin-top:10px}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
 .meter.warn i{background:var(--warn)}
 
+/* ---------------------------------------------------------------- notes */
 .note{border-left:3px solid var(--accent);background:var(--accent-soft);
- padding:12px 16px;border-radius:0 4px 4px 0;margin-bottom:16px;font-size:14px}
+ padding:13px 17px;border-radius:0 9px 9px 0;margin-bottom:16px;font-size:14px;
+ font-weight:430;line-height:1.6}
 .note.warn{border-left-color:var(--warn);background:var(--warn-soft)}
 .note.bad{border-left-color:var(--danger);background:var(--danger-soft)}
-.note b{display:block;font-family:var(--mono);font-size:10.5px;
- letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
-
-ul.gaps{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink-2)}
+.note b{display:block;font-family:var(--mono);font-size:10.5px;font-weight:600;
+ letter-spacing:.11em;text-transform:uppercase;margin-bottom:5px}
+ul.gaps{margin:0;padding-left:18px;font-size:13.8px;font-weight:420;
+ color:var(--ink-2);line-height:1.6}
 ul.gaps li{margin-bottom:5px}
 
-table{border-collapse:collapse;width:100%;font-size:13.5px}
-th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
- text-transform:uppercase;color:var(--muted);padding:0 12px 7px 0;
- border-bottom:1px solid var(--rule-2)}
+/* ---------------------------------------------------------------- tables */
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-weight:430}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:600;
+ letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+ padding:0 12px 8px 0;border-bottom:1px solid var(--rule-2)}
 td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
 .scroll{overflow-x:auto}
 
 .split{display:grid;grid-template-columns:1fr 1fr;gap:0}
 @media(max-width:920px){.split{grid-template-columns:1fr}}
-.split>div{padding:15px;min-width:0}
+.split>div{padding:16px;min-width:0}
 .split>div+div{border-left:1px solid var(--rule)}
 @media(max-width:920px){.split>div+div{border-left:0;border-top:1px solid var(--rule)}}
-.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
- text-transform:uppercase;color:var(--accent);margin-bottom:7px}
-.stmt{white-space:pre-wrap;font-size:14px}
+.stmt{white-space:pre-wrap;font-size:14.5px;font-weight:430;line-height:1.62}
 
-dialog{border:1px solid var(--rule-2);border-radius:6px;padding:0;max-width:1000px;
- width:92vw;background:var(--surface);color:var(--ink)}
-dialog::backdrop{background:rgba(0,0,0,.45)}
-.dlg-h{padding:13px 18px;border-bottom:1px solid var(--rule);display:flex;
+/* ---------------------------------------------------------------- dialog */
+dialog{border:1px solid var(--rule-2);border-radius:16px;padding:0;
+ max-width:1000px;width:92vw;background:var(--surface);color:var(--ink);
+ box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(10,26,20,.5)}
+.dlg-h{padding:14px 20px;border-bottom:1px solid var(--rule);display:flex;
  justify-content:space-between;gap:14px;align-items:center;
  background:var(--surface-2)}
-.dlg-b{padding:16px;max-height:72vh;overflow:auto}
+.dlg-b{padding:18px;max-height:72vh;overflow:auto}
+.dlg-b pre{border:0;background:transparent;padding:0;max-height:none}
 .ln{color:var(--muted);user-select:none}
 
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--rule-2);
  border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;
  vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.spin{animation:none}}
-.empty{padding:34px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}
+ nav button,.btn,.ev,input,select,textarea{transition:none}}
+.empty{padding:36px;text-align:center;color:var(--muted)}
+
+/* ---------------------------------------------------------------- ask form */
+#ask-input{font:inherit;font-size:14.5px;padding:11px 14px;border-radius:9px;
+ border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);
+ width:100%;min-height:44px;resize:vertical;line-height:1.5;
+ font-family:var(--sans)}
+#ask-input.code{font-family:var(--mono);font-size:12.5px}
+.hint{font-size:12.5px;font-weight:420;color:var(--muted);margin:7px 0 0}
+
+/* ---------------------------------------------------------------- answer */
+.subject{font-family:var(--mono);font-size:12.5px;font-weight:600;
+ color:var(--ink);word-break:break-word;margin-top:4px;line-height:1.5}
+/* A section is no longer one card holding a list of points: it is a labelled
+   run of cards, one card per point. That is the Search view's shape, which
+   readers already parse without effort. */
+.secblk{margin:0 0 26px;padding-left:15px;border-left:3px solid var(--rule-2)}
+.sec-business{border-left-color:var(--curated)}
+.sec-technical{border-left-color:var(--accent)}
+.sec-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 7px}
+.sec-h strong{font-family:var(--sans);font-size:15px;font-weight:600;
+ color:var(--ink);letter-spacing:0}
+.lead{margin:0 0 14px;color:var(--ink-2);font-size:14px;font-weight:420;
+ max-width:76ch;line-height:1.62}
+
+/* The number reads as part of the heading — "2.1. Regular Loan Instalment
+   Interest > Example" — rather than as a badge standing beside it. */
+.num{font-family:var(--mono);font-weight:600;color:var(--accent);
+ font-variant-numeric:tabular-nums;margin-right:8px}
+
+/* Small facts about a step read better side by side than stacked — a
+   stack of one-line greys is what made the old answer look like a log. */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0 0}
+.chip{font-family:var(--mono);font-size:11px;font-weight:500;
+ color:var(--ink-2);background:var(--surface-2);border:1px solid var(--rule);
+ border-radius:999px;padding:3px 10px}
+
+/* Curated prose sits in a tinted well, the way a search excerpt does — it
+   marks where the estate's own words begin and the platform's stop. */
+.quote{background:var(--surface-2);border:1px solid var(--rule);
+ border-radius:10px;padding:15px 17px;margin-top:10px}
+.quote .prose{margin:0}
+.quote>*+*{margin-top:11px}
+.quote pre{background:var(--surface)}
+
+.ansc{margin-bottom:12px}
+.ansc .card-b{padding:16px 18px}
+.step-t{font-weight:600;font-size:14.5px;min-width:0;word-break:break-word;
+ line-height:1.5}
+.sec-technical .step-t{font-family:var(--mono);font-size:13px;font-weight:600}
+.step-m{font-family:var(--mono);font-size:11.5px;font-weight:500;
+ color:var(--muted);margin-top:3px;word-break:break-word}
+
+/* Business prose is meant to be READ — serif, wide measure, real paragraphs. */
+.prose{font-family:var(--serif);font-size:17px;font-weight:400;line-height:1.66;
+ white-space:pre-wrap;max-width:74ch;margin:9px 0 2px;color:var(--ink)}
+.prose strong{font-weight:600}
+.prose code{font-size:.85em}
+.items{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.item{padding:13px 15px;border:1px solid var(--rule);border-radius:10px;
+ background:var(--surface)}
+.item-t{font-family:var(--mono);font-size:12.5px;font-weight:600;
+ color:var(--ink);word-break:break-word;line-height:1.5}
+.item-m{font-family:var(--mono);font-size:11.5px;font-weight:500;
+ color:var(--muted);margin-top:2px;word-break:break-word}
+.srcbtn{font-family:var(--mono);font-size:11px;font-weight:500;
+ background:var(--surface);border:1px solid var(--rule-2);border-radius:7px;
+ color:var(--ink-2);padding:5px 11px;margin-top:9px;
+ transition:border-color .13s, color .13s}
+.srcbtn:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
 
+<div class="deco deco-l" aria-hidden="true"></div>
+<div class="deco deco-r" aria-hidden="true"></div>
+
 <header>
   <div class="bar">
-    <div class="brand">Enterprise <span>Code Knowledge</span></div>
+    <a class="brand" id="home" href="#ask" title="Back to Ask">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg></span>
+      <span>Enterprise Code Knowledge</span>
+    </a>
     <nav id="nav">
       <button data-v="ask" aria-current="true">Ask</button>
       <button data-v="search">Search</button>
@@ -170,37 +385,52 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
       <button data-v="review">Review</button>
       <button data-v="audit">Audit</button>
     </nav>
-    <span class="pill" id="freshness">loading…</span>
+    <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/><path d="M4 11.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg><span id="freshness">loading…</span></span>
   </div>
 </header>
 
 <main>
   <!-- ASK -->
   <section id="v-ask">
-    <h2>Ask a question</h2>
-    <p class="sub">Fifteen read-only services. Every answer carries its source
-      locations, separates derived fact from curated interpretation, and says
-      plainly when it does not know.</p>
-    <div class="card"><div class="card-b">
-      <div class="row" style="margin-bottom:10px">
-        <select id="svc" style="min-width:270px"></select>
-        <span class="pill" id="svc-kind"></span>
+    <div class="panel">
+    <div class="page-h">
+      <div class="page-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 18.5H8l-4 3v-3H3.5A2.5 2.5 0 0 1 1 16V5.5A2.5 2.5 0 0 1 3.5 3h13A2.5 2.5 0 0 1 19 5.5V9"/><path d="M19.5 13.5a2.5 2.5 0 1 1 3.2 2.4c-.8.3-1.2 1-1.2 1.8v.3"/><path d="M21.5 21.4v.01"/></svg></div>
+      <div>
+        <h2>Ask a question</h2>
+        <p class="sub">Sixteen questions, answered only from the knowledge base. Every answer gives the business flow in plain language and the source-code execution flow beneath it, each line traceable to a file and a line number. Nothing is inferred or generated — where the knowledge base is silent, the answer says so and names what is missing.</p>
       </div>
-      <p class="sub" id="svc-when" style="margin:0 0 12px"></p>
-      <div id="svc-inputs" class="row" style="margin-bottom:12px"></div>
-      <div class="row">
-        <button class="btn" id="run">Run service</button>
+    </div>
+    <div class="card"><div class="card-b">
+      <div class="lbl">The question</div>
+      <div class="row" style="margin-bottom:12px">
+        <select id="svc" style="flex:1;min-width:280px"></select>
+      </div>
+      <p class="sub" id="svc-answers" style="margin:0 0 6px;color:var(--ink-2)"></p>
+      <p class="sub" id="svc-when" style="margin:0 0 16px"></p>
+
+      <div class="lbl">What you are asking about</div>
+      <textarea id="ask-input" rows="1" spellcheck="false"></textarea>
+      <p class="hint" id="ask-hint"></p>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="run">Ask</button>
         <span id="run-state" class="mono"></span>
       </div>
     </div></div>
     <div id="ask-out"></div>
+    </div>
   </section>
 
   <!-- SEARCH -->
   <section id="v-search" hidden>
-    <h2>Search knowledge</h2>
-    <p class="sub">Hybrid retrieval — keyword and meaning, fused. Ask in
-      ordinary business language; you do not need to know a technical name.</p>
+    <div class="panel">
+    <div class="page-h">
+      <div class="page-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg></div>
+      <div>
+        <h2>Search knowledge</h2>
+        <p class="sub">Hybrid retrieval — keyword and meaning, fused. Ask in ordinary business language; you do not need to know a technical name.</p>
+      </div>
+    </div>
     <div class="card"><div class="card-b">
       <div class="row">
         <input type="text" id="q" placeholder="how do we stop paying someone who has left">
@@ -214,30 +444,47 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
       </div>
     </div></div>
     <div id="search-out"></div>
+    </div>
   </section>
 
   <!-- ESTATE -->
   <section id="v-estate" hidden>
-    <h2>Registered estate</h2>
-    <p class="sub">Everything in scope, and only what is in scope. Adding or
-      removing an application is a change to the register alone.</p>
+    <div class="panel">
+    <div class="page-h">
+      <div class="page-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg></div>
+      <div>
+        <h2>Registered estate</h2>
+        <p class="sub">Everything in scope, and only what is in scope. Adding or removing an application is a change to the register alone.</p>
+      </div>
+    </div>
     <div id="estate-out"></div>
+    </div>
   </section>
 
   <!-- COVERAGE -->
   <section id="v-coverage" hidden>
-    <h2>Coverage and freshness</h2>
-    <p class="sub">What the platform interpreted, and what it could not. A
-      coverage number nobody can see is the same as no coverage number.</p>
+    <div class="panel">
+    <div class="page-h">
+      <div class="page-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20h18"/><rect x="4.5" y="12" width="4" height="8" rx="1.2"/><rect x="10" y="7.5" width="4" height="12.5" rx="1.2"/><rect x="15.5" y="4" width="4" height="16" rx="1.2"/></svg></div>
+      <div>
+        <h2>Coverage and freshness</h2>
+        <p class="sub">What the platform interpreted, and what it could not. A coverage number nobody can see is the same as no coverage number.</p>
+      </div>
+    </div>
     <div id="coverage-out"></div>
+    </div>
   </section>
 
   <!-- REVIEW -->
   <section id="v-review" hidden>
-    <h2>Anchor review</h2>
-    <p class="sub">Is this business statement actually implemented here? Approve
-      only if the code implements, enforces or represents it — being about the
-      same topic is not enough.</p>
+    <div class="panel">
+    <div class="page-h">
+      <div class="page-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.8l7.5 3.2v5.4c0 4.5-3.1 8.5-7.5 9.8-4.4-1.3-7.5-5.3-7.5-9.8V6z"/><path d="M8.8 11.8l2.3 2.3 4.4-4.4"/></svg></div>
+      <div>
+        <h2>Anchor review</h2>
+        <p class="sub">Is this business statement actually implemented here? Approve only if the code implements, enforces or represents it — being about the same topic is not enough.</p>
+      </div>
+    </div>
     <div class="card"><div class="card-b"><div class="row">
       <label class="mono">reviewer</label>
       <input type="text" id="reviewer" style="max-width:210px" placeholder="your name">
@@ -249,14 +496,21 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
       <span class="pill" id="anchor-counts"></span>
     </div></div></div>
     <div id="review-out"></div>
+    </div>
   </section>
 
   <!-- AUDIT -->
   <section id="v-audit" hidden>
-    <h2>Access log</h2>
-    <p class="sub">Every API call: who asked, what they asked, and when.
-      Recorded openly rather than silently.</p>
+    <div class="panel">
+    <div class="page-h">
+      <div class="page-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6.8V12l3.4 2"/></svg></div>
+      <div>
+        <h2>Access log</h2>
+        <p class="sub">Every API call: who asked, what they asked, and when. Recorded openly rather than silently.</p>
+      </div>
+    </div>
     <div id="audit-out"></div>
+    </div>
   </section>
 </main>
 
@@ -284,6 +538,11 @@ let CAT = [], COV = null;
 
 /* ---------------- navigation ---------------- */
 const VIEWS = ['ask','search','estate','coverage','review','audit'];
+$('#home').addEventListener('click', e => {
+  e.preventDefault();
+  show('ask');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
 $('#nav').addEventListener('click', e => {
   const b = e.target.closest('button[data-v]'); if (!b) return;
   show(b.dataset.v);
@@ -340,120 +599,385 @@ async function openSource(asset, path, start, end){
 }
 
 /* ---------------- ask ---------------- */
+/* The picker offers the sixteen FAQ services, in their numbered order. They
+   are ordinary registry entries carrying faq=1..16, so adding one to the
+   registry adds it here — no list is maintained in this file. */
+function faqs(){ return CAT.filter(c => c.faq).sort((a,b) => a.faq - b.faq); }
+
 function buildServicePicker(){
   const sel = $('#svc');
   sel.innerHTML = '';
-  CAT.forEach(c => {
-    const o = el('option', null, `${c.id} — ${c.question}`);
+  faqs().forEach(c => {
+    const o = el('option', null, `${c.faq}. ${c.question}`);
     o.value = c.id; sel.appendChild(o);
   });
   sel.onchange = renderInputs;
   renderInputs();
 }
+
+function current(){ return CAT.find(x => x.id === $('#svc').value); }
+
 function renderInputs(){
-  const c = CAT.find(x => x.id === $('#svc').value);
-  $('#svc-kind').textContent = c.composite ? 'composite' : 'atomic';
+  const c = current(); if (!c) return;
+  $('#svc-answers').textContent = c.answers_with;
   $('#svc-when').textContent = c.when_to_use;
-  const box = $('#svc-inputs'); box.innerHTML = '';
-  Object.entries(c.inputs).forEach(([k, desc]) => {
-    const i = el('input'); i.type = 'text'; i.id = 'in-' + k;
-    i.placeholder = `${k}${c.required.includes(k) ? ' (required)' : ''} — ${desc}`;
-    i.onkeydown = e => { if (e.key === 'Enter') runService(); };
-    box.appendChild(i);
-  });
-  if (!Object.keys(c.inputs).length)
-    box.appendChild(el('span', 'mono', 'no arguments'));
+  const box = $('#ask-input');
+  box.placeholder = c.example ? `for example: ${c.example}` : '';
+  $('#ask-hint').textContent = c.inputs.element || '';
+  autosize(box);
 }
+
+/* One field for every question. It behaves as an ordinary textbox for a name
+   or a phrase, and grows into a code box when a snippet is pasted — which is
+   what question 16 asks for. */
+function autosize(t){
+  t.classList.toggle('code', t.value.includes('\n') || t.value.length > 120);
+  t.style.height = 'auto';
+  t.style.height = Math.min(340, Math.max(40, t.scrollHeight + 2)) + 'px';
+}
+$('#ask-input').addEventListener('input', e => autosize(e.target));
+$('#ask-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.target.value.includes('\n')){
+    e.preventDefault(); runService();
+  }
+});
 $('#run').onclick = runService;
+
 async function runService(){
-  const c = CAT.find(x => x.id === $('#svc').value);
-  const qs = new URLSearchParams();
-  Object.keys(c.inputs).forEach(k => {
-    const v = ($('#in-' + k) || {}).value || '';
-    if (v.trim()) qs.set(k, v.trim());
-  });
-  $('#run-state').innerHTML = '<span class="spin"></span> running…';
+  const c = current(); if (!c) return;
+  const value = $('#ask-input').value.trim();
+  if (!value){
+    $('#ask-out').innerHTML =
+      '<div class="note warn"><b>nothing to ask about</b>' +
+      'Name a business process, a screen, a class, a table or an exception.</div>';
+    $('#ask-input').focus();
+    return;
+  }
+  $('#run-state').innerHTML = '<span class="spin"></span> reading the knowledge base…';
+  $('#run').disabled = true;
   $('#ask-out').innerHTML = '';
   try {
+    const qs = new URLSearchParams({element: value});
     const r = await api(`/api/services/${c.id}?` + qs.toString());
     $('#ask-out').innerHTML = '';
-    $('#ask-out').appendChild(renderResult(r));
+    $('#ask-out').appendChild(renderResult(r, c));
   } catch (err) {
     $('#ask-out').innerHTML =
       `<div class="note bad"><b>request failed</b>${esc(err.message)}</div>`;
-  } finally { $('#run-state').textContent = ''; }
+  } finally { $('#run-state').textContent = ''; $('#run').disabled = false; }
 }
 
-function renderResult(r){
-  const card = el('div', 'card');
+/* ---------------- rendering an answer ---------------- */
+/* Business sections are set as prose to be read; technical sections as a
+   reference to be scanned. Same evidence, two audiences — which is the whole
+   point of the answer shape. */
+
+const OUTCOME_LABEL = {
+  answered: 'answered from the knowledge base',
+  partial: 'partly answered — some sections are empty',
+  unknown: 'the knowledge base does not know this',
+};
+
+function inlineMd(text){
+  /* The wiki is markdown. Only the two marks that change how a sentence READS
+     are honoured; everything else stays literal, and everything is escaped
+     first. A rule line ('---') is page furniture rather than content, so it
+     goes — dropping it changes how the passage looks, never what it says. */
+  const body = String(text ?? '')
+    .split('\n')
+    .filter(l => !/^\s*([-*_])\1{2,}\s*$/.test(l))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return esc(body)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+/* Answers borrow the Search view's grammar, because it is the one people
+   already read without effort: a plain title, the location as a clickable
+   chip, then the content in a tinted block. Everything below builds that
+   same shape out of a narrated step. */
+
+const norm = t => String(t ?? '').replace(/\s+/g, ' ').trim();
+
+function locLabel(ref){
+  if (!ref || !ref.path) return '';
+  const end = ref.end_line && ref.end_line !== ref.start_line
+    ? '-' + ref.end_line : '';
+  return `${ref.path}:${ref.start_line}${end}`;
+}
+
+function locChip(ref){
+  const label = locLabel(ref);
+  if (!label) return null;
+  const b = el('button', 'ev');
+  b.appendChild(el('div', 'lo', label + '  —  view source'));
+  b.onclick = () => openSource(ref.asset, ref.path, ref.start_line,
+                               ref.end_line || ref.start_line);
+  return b;
+}
+
+/* A signature already spelled out in the title, or an owner already carried
+   by the `Owner#member` title, is noise repeated twice. */
+function covered(title, text){
+  const t = norm(title), x = norm(text);
+  return !x || t === x || (t.length > x.length && t.includes(x));
+}
+
+function appendMeta(parent, metas, ref, title){
+  const loc = locLabel(ref);
+  const keep = (metas || []).filter(m => {
+    if (!m) return false;
+    if (loc && (m === loc || m.startsWith(loc))) return false;
+    const owner = /^on (.+)$/.exec(m);
+    if (owner && norm(title).startsWith(owner[1] + '#')) return false;
+    return true;
+  });
+  if (!keep.length) return;
+  const short = keep.filter(m => m.length <= 64);
+  const long  = keep.filter(m => m.length > 64);
+  if (short.length){
+    const row = el('div', 'chips');
+    short.forEach(m => row.appendChild(el('span', 'chip', m)));
+    parent.appendChild(row);
+  }
+  long.forEach(m => parent.appendChild(el('div', 'step-m', m)));
+}
+
+/* Curated pages contain markdown tables. Set in a proportional serif their
+   columns collapse into a row of pipes; the Search view already solves this
+   by showing the excerpt in mono. So: prose stays serif and readable, and a
+   run of table lines is handed to a <pre> where the columns line up. */
+function renderProse(text){
+  const frag = document.createDocumentFragment();
+  let buf = [], mode = null;
+  const flush = () => {
+    if (!buf.length) return;
+    const body = buf.join('\n');
+    if (mode === 'table'){
+      const pre = el('pre');
+      pre.style.maxHeight = '280px';
+      pre.textContent = body.replace(/^\n+|\n+$/g, '');
+      frag.appendChild(pre);
+    } else {
+      const d = el('div', 'prose');
+      d.innerHTML = inlineMd(body);
+      if (d.textContent.trim()) frag.appendChild(d);
+    }
+    buf = [];
+  };
+  String(text ?? '').split('\n').forEach(line => {
+    const kind = /^\s*\|/.test(line) ? 'table' : 'text';
+    if (kind !== mode){ flush(); mode = kind; }
+    buf.push(line);
+  });
+  flush();
+  return frag;
+}
+
+/* Numbering.
+
+   Curated headings carry the document's own section numbers — "2. Regular
+   Loan Instalment Interest". Those are the numbers a reader sees on the wiki
+   page itself, so they are the numbers used here rather than a fresh count of
+   our own; the number is lifted out of the heading so it is not printed
+   twice. Points sharing a heading root are that root's sub-sections and are
+   numbered under it: 2., then 2.1., 2.2. Where no heading carries a number —
+   every derived section — points are numbered by position instead. */
+function outline(steps){
+  const parts = (steps || []).map(st => {
+    const t = norm(st.title || '');
+    const cut = t.indexOf(' > ');
+    const root = cut < 0 ? t : t.slice(0, cut);
+    const m = /^(\d+)\s*[.)]\s*(.+)$/.exec(root);
+    return {root,
+            docNum: m ? parseInt(m[1], 10) : null,
+            title: m ? m[2] + (cut < 0 ? '' : t.slice(cut)) : t};
+  });
+  const byDoc = parts.some(p => p.docNum !== null);
+  let top = 0, sub = 0, last = null;
+  return parts.map(p => {
+    if (p.root !== last){ last = p.root; sub = 0; top = byDoc ? p.docNum : top + 1; }
+    else sub += 1;
+    const n = top == null ? '' : (sub ? `${top}.${sub}.` : `${top}.`);
+    return {n, stem: top == null ? '' : (sub ? `${top}.${sub}` : `${top}`),
+            title: p.title};
+  });
+}
+
+function heading(cls, num, text){
+  const d = el('div', cls);
+  if (num) d.appendChild(el('span', 'num', num));
+  d.appendChild(document.createTextNode(text || ''));
+  return d;
+}
+
+/* One point, one card — laid out like a Search result: a header strip
+   carrying where it came from, then the heading, the location as a clickable
+   chip, then the content. */
+function renderStep(st, audience, head){
+  const card = el('div', 'card ansc');
+
   const h = el('div', 'card-h');
-  h.appendChild(tag(r.outcome, 't-' + r.outcome));
-  h.appendChild(el('span', null, r.service));
-  h.appendChild(el('span', null, '· ' + r.question));
-  card.appendChild(h);
+  if (st.origin) h.appendChild(tag(st.origin, 't-' + st.origin));
+  if (st.ref && st.ref.asset) h.appendChild(el('span', null, st.ref.asset));
+  if (h.childNodes.length) card.appendChild(h);
 
-  const b = el('div', 'card-b');
+  const d = el('div', 'card-b');
+  d.appendChild(heading('step-t', head.n, head.title || st.title || ''));
 
-  if (r.outcome === 'unknown'){
-    const n = el('div', 'note bad');
-    n.appendChild(el('b', null, 'the platform does not know'));
-    n.appendChild(el('div', null,
-      (r.findings[0] && r.findings[0].statement) || ''));
-    b.appendChild(n);
+  const chip = locChip(st.ref);
+  if (chip) d.appendChild(chip);
+
+  if (st.text && !covered(st.title, st.text)){
+    if (audience === 'business'){
+      const q = el('div', 'quote');
+      q.appendChild(renderProse(st.text));
+      d.appendChild(q);
+    } else {
+      const pre = el('pre');
+      pre.style.maxHeight = '220px';
+      pre.textContent = st.text;
+      d.appendChild(pre);
+    }
   }
 
-  (r.findings || []).forEach(f => {
-    if (f.section){
-      const s = el('div', null);
-      const hd = el('div', 'row');
-      hd.style.marginBottom = '6px';
-      hd.appendChild(tag(f.outcome, 't-' + f.outcome));
-      hd.appendChild(el('strong', null, f.section.replace(/_/g, ' ')));
-      s.appendChild(hd);
-      const p = el('pre');
-      p.style.maxHeight = '210px';
-      p.textContent = (f.detail || []).map(d => JSON.stringify(d)).join('\n');
-      s.appendChild(p);
-      s.style.marginBottom = '14px';
-      b.appendChild(s);
-    } else {
-      const p = el('pre');
-      p.style.marginBottom = '10px';
-      p.textContent = JSON.stringify(f, null, 1);
-      b.appendChild(p);
-    }
-  });
+  appendMeta(d, st.meta, st.ref, st.title);
 
-  if (r.needed && r.needed.length){
+  /* An alternative candidate re-asks the same question against that exact
+     name. Resolution from a business phrase is a shortlist, not a decision —
+     this is how the reader makes the decision. */
+  if (st.ask){
+    const a = el('button', 'srcbtn', 'ask about this instead');
+    a.onclick = () => {
+      const box = $('#ask-input');
+      box.value = st.ask; autosize(box);
+      window.scrollTo({top: 0, behavior: 'smooth'});
+      runService();
+    };
+    d.appendChild(a);
+  }
+
+  /* The elements a point covers are its sub-sections, so they carry the
+     point's number: under "2." they are 2.1, 2.2, 2.3. */
+  if ((st.items || []).length){
+    const box = el('div', 'items');
+    st.items.forEach((it, i) => {
+      const row = el('div', 'item');
+      row.appendChild(heading('item-t',
+        head.stem ? `${head.stem}.${i + 1}.` : '', it.title));
+      const c = locChip(it.ref);
+      if (c) row.appendChild(c);
+      if (it.text && !covered(it.title, it.text))
+        row.appendChild(el('div', 'item-m', it.text));
+      appendMeta(row, it.meta, it.ref, it.title);
+      box.appendChild(row);
+    });
+    d.appendChild(box);
+  }
+
+  card.appendChild(d);
+  return card;
+}
+
+function renderSection(sec){
+  const blk = el('div', 'secblk sec-' + sec.audience);
+
+  const h = el('div', 'sec-h');
+  h.appendChild(tag(sec.audience === 'business' ? 'for everyone' : 'for developers',
+                    sec.audience === 'business' ? 't-curated' : 't-derived'));
+  h.appendChild(el('strong', null, sec.title));
+  blk.appendChild(h);
+
+  if (sec.lead) blk.appendChild(el('p', 'lead', sec.lead));
+
+  const steps = sec.steps || [];
+  if (!steps.length){
     const n = el('div', 'note warn');
-    n.appendChild(el('b', null, 'what would be needed'));
+    n.appendChild(el('b', null, 'nothing known here'));
+    n.appendChild(el('div', null, sec.empty ||
+      'The knowledge base holds nothing for this section.'));
+    blk.appendChild(n);
+  } else {
+    const heads = outline(steps);
+    steps.forEach((st, i) => blk.appendChild(renderStep(st, sec.audience, heads[i])));
+  }
+
+  if ((sec.notes || []).length){
+    const n = el('div', 'note');
+    n.appendChild(el('b', null, 'how to read this'));
+    const ul = el('ul', 'gaps');
+    sec.notes.forEach(x => ul.appendChild(el('li', null, x)));
+    n.appendChild(ul);
+    blk.appendChild(n);
+  }
+  return blk;
+}
+
+function renderResult(r, spec){
+  const wrap = el('div');
+
+  const head = el('div', 'card');
+  const hh = el('div', 'card-h');
+  hh.appendChild(tag(r.outcome, 't-' + r.outcome));
+  hh.appendChild(el('span', null, OUTCOME_LABEL[r.outcome] || r.outcome));
+  head.appendChild(hh);
+  const hb = el('div', 'card-b');
+  hb.appendChild(el('div', null, (spec && spec.question) || r.service));
+  hb.appendChild(el('div', 'lead', '“' + r.question + '”'));
+
+  const sub = r.subject || {};
+  if (sub.resolved){
+    hb.appendChild(el('div', 'subject', sub.fqn));
+    const chips = el('div', 'chips');
+    chips.appendChild(el('span', 'chip', sub.kind));
+    chips.appendChild(el('span', 'chip', `${sub.application} (${sub.asset})`));
+    if (sub.route) chips.appendChild(el('span', 'chip', `route /${sub.route}`));
+    if (sub.table) chips.appendChild(el('span', 'chip', `table ${sub.table}`));
+    hb.appendChild(chips);
+    const c = locChip({asset: sub.asset, path: sub.path,
+                       start_line: sub.start_line, end_line: sub.end_line});
+    if (c) hb.appendChild(c);
+  }
+  head.appendChild(hb);
+  wrap.appendChild(head);
+
+  (r.sections || []).forEach(sec => wrap.appendChild(renderSection(sec)));
+
+  if (!(r.sections || []).length && (r.findings || []).length){
+    const c = el('div', 'card'); const b = el('div', 'card-b');
+    const pre = el('pre');
+    pre.textContent = JSON.stringify(r.findings, null, 1);
+    b.appendChild(pre); c.appendChild(b); wrap.appendChild(c);
+  }
+
+  const foot = el('div', 'card');
+  const fb = el('div', 'card-b');
+  let anything = false;
+
+  if ((r.needed || []).length){
+    const n = el('div', 'note warn');
+    n.appendChild(el('b', null, 'what would be needed to answer this'));
     const ul = el('ul', 'gaps');
     r.needed.forEach(x => ul.appendChild(el('li', null, x)));
-    n.appendChild(ul);
-    b.appendChild(n);
+    n.appendChild(ul); fb.appendChild(n); anything = true;
   }
-
-  if (r.evidence && r.evidence.length){
-    b.appendChild(el('div', 'lbl', `evidence — ${r.evidence.length} source reference(s)`));
-    b.appendChild(evidenceList(r.evidence));
-  }
-
-  if (r.gaps && r.gaps.length){
+  if ((r.gaps || []).length){
     const n = el('div', 'note warn');
-    n.appendChild(el('b', null, 'gaps — what this answer does not cover'));
+    n.appendChild(el('b', null, 'limits of this answer'));
     const ul = el('ul', 'gaps');
     r.gaps.forEach(x => ul.appendChild(el('li', null, x)));
-    n.appendChild(ul);
-    b.appendChild(n);
+    n.appendChild(ul); fb.appendChild(n); anything = true;
   }
-
-  const g = el('div', 'note');
-  g.appendChild(el('b', null, 'how to present this'));
-  g.appendChild(el('div', null, r.presentation_guidance));
-  b.appendChild(g);
-
-  card.appendChild(b);
-  return card;
+  if ((r.evidence || []).length){
+    fb.appendChild(el('div', 'lbl',
+      `evidence — ${r.evidence.length} source reference(s) behind this answer`));
+    fb.appendChild(evidenceList(r.evidence));
+    anything = true;
+  }
+  if (anything){ foot.appendChild(fb); wrap.appendChild(foot); }
+  return wrap;
 }
 
 /* ---------------- search ---------------- */

@@ -268,6 +268,21 @@ def main() -> int:
     print("BR-43 — reference data has no write path")
     check_br43_no_write_route()
 
+    # Everything below reads CAP-4 and CAP-6 tables. A knowledge.db built
+    # before those capabilities landed simply does not have them, and the
+    # honest report is "not exercised", not a stack trace that hides whether
+    # the rest of the suite passed.
+    store = KnowledgeStore(DB)
+    have = store.has_table("process") and store.has_table("refdata_source")
+    store.close()
+    if not have:
+        print("\nCAP-4 / CAP-6 assertions NOT EXERCISED")
+        print("  build/knowledge.db predates these capabilities and carries no")
+        print("  process or refdata tables. Run `./eck-cli refresh` to rebuild")
+        print("  it, then re-run this suite to check them.")
+        print(f"\n{passed} passed, {failed} failed, CAP-4/CAP-6 skipped")
+        return 1 if failed else 0
+
     print("\nBR-42 — no excluded key/table is ever captured")
     check_br42_no_excluded_value_captured()
 

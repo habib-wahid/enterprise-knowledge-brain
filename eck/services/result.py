@@ -51,6 +51,25 @@ class Evidence:
 
 
 @dataclass
+class Section:
+    """A narrated block of an answer, addressed at one audience.
+
+    `findings` is the machine shape — good for an assistant, unreadable for a
+    person. A Section is the same evidence arranged so it can be read: a lead
+    saying where the material came from, ordered steps, and the honest reason
+    it is empty when it is. Every step's text is copied from a row in the
+    knowledge base; nothing here is composed or paraphrased.
+    """
+    key: str
+    title: str
+    audience: str                        # 'business' | 'technical'
+    lead: str = ""
+    steps: list[dict[str, Any]] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    empty: str = ""                      # why there is nothing, when there is
+
+
+@dataclass
 class ServiceResult:
     service: str
     question: str
@@ -60,6 +79,10 @@ class ServiceResult:
     gaps: list[str] = field(default_factory=list)
     needed: list[str] = field(default_factory=list)
     presentation_guidance: str = ""
+    # Narrated form of the same evidence (CAP-7 FAQ services). Atomic services
+    # leave this empty: they return evidence and let the caller narrate.
+    sections: list[Section] = field(default_factory=list)
+    subject: dict[str, Any] = field(default_factory=dict)
     grounding: str = GROUNDING
 
     def to_dict(self) -> dict[str, Any]:

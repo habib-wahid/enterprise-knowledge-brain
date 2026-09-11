@@ -91,6 +91,24 @@ def main() -> int:
         "composite.failure_trace": {"symptom": "PayrollTaxValidationException"},
         "composite.input_acceptance": {"element": "SalaryPaymentSendBackServiceBean"},
         "composite.process_description": {"process": "salary hold and release"},
+        # CAP-7 FAQ services — probed with the example input each one
+        # publishes, so the probe stays honest if the example changes.
+        "faq.process_steps": {"element": "Loan interest calculation"},
+        "faq.end_to_end": {"element": "Loan account modification"},
+        "faq.rules_and_validations": {"element": "Salary adjustment"},
+        "faq.source_execution_flow": {"element": "Loan disbursement"},
+        "faq.code_inventory": {"element": "Customer registration"},
+        "faq.business_to_code_map": {"element": "Loan repayment"},
+        "faq.data_involved": {"element": "Account closure"},
+        "faq.trigger_and_aftermath": {"element": "Fund transfer"},
+        "faq.conditions_and_decisions": {"element": "Loan approval"},
+        "faq.where_implemented": {"element": "Interest calculation"},
+        "faq.error_root_cause": {"element": "PayrollTaxValidationException"},
+        "faq.error_technical_flow": {"element": "PayrollTaxValidationException"},
+        "faq.change_blast_radius": {"element": "Loan interest calculation"},
+        "faq.change_impact": {"element": "Modify repayment calculation"},
+        "faq.before_you_change": {"element": "Loan repayment"},
+        "faq.replacement_analysis": {"element": "LoanDisbursementServiceBean"},
     }
     check("every registered service has a probe",
           set(probes) == set(REGISTRY), str(set(REGISTRY) ^ set(probes)))
@@ -128,17 +146,80 @@ def main() -> int:
           all(e.origin in ("derived", "curated", "inferred")
               for r in results.values() for e in r.evidence))
 
+    print("\nFAQ contract (CAP-7)")
+    faq = [c for c in cat if c["faq"]]
+    check("the sixteen questions are registered",
+          len(faq) == 16, f"found {len(faq)}")
+    check("they are numbered 1..16 with no gaps or duplicates",
+          sorted(c["faq"] for c in faq) == list(range(1, 17)),
+          str(sorted(c["faq"] for c in faq)))
+    check("every question states what its answer contains",
+          all(c["answers_with"].strip() for c in faq))
+    check("every question carries a worked example",
+          all(c["example"].strip() for c in faq))
+    check("every question takes exactly one required input",
+          all(c["required"] == ["element"] for c in faq),
+          str([(c["id"], c["required"]) for c in faq
+               if c["required"] != ["element"]]))
+
+    faq_results = {s: r for s, r in results.items() if s.startswith("faq.")}
+    check("every FAQ answer is narrated into sections",
+          all(r.sections for r in faq_results.values()),
+          str([s for s, r in faq_results.items() if not r.sections]))
+    check("every FAQ answer serves BOTH audiences",
+          all({sec.audience for sec in r.sections} >= {"business", "technical"}
+              for r in faq_results.values()),
+          str([s for s, r in faq_results.items()
+               if {sec.audience for sec in r.sections} < {"business", "technical"}]))
+    check("an empty section says why it is empty rather than going silent",
+          all(sec.empty.strip()
+              for r in faq_results.values() for sec in r.sections if not sec.steps),
+          str([(s, sec.key) for s, r in faq_results.items()
+               for sec in r.sections if not sec.steps and not sec.empty.strip()]))
+    check("every narrated step is attributed derived or curated",
+          all(st.get("origin") in ("derived", "curated", "inferred")
+              for r in faq_results.values() for sec in r.sections
+              for st in sec.steps),
+          str([(s, sec.key, st.get("title"))
+               for s, r in faq_results.items() for sec in r.sections
+               for st in sec.steps
+               if st.get("origin") not in ("derived", "curated", "inferred")][:3]))
+    check("every business step quotes text rather than summarising",
+          all(st.get("text", "").strip()
+              for r in faq_results.values() for sec in r.sections
+              if sec.audience == "business" and sec.key != "alternatives"
+              for st in sec.steps),
+          str([(s, sec.key) for s, r in faq_results.items()
+               for sec in r.sections
+               if sec.audience == "business" and sec.key != "alternatives"
+               for st in sec.steps if not st.get("text", "").strip()][:3]))
+
     print("\nrefusal contract (BR-55)")
     ctx = Context(DB)
     junk = REGISTRY["navigation.find"].fn(ctx, element="kubernetes helm chart")
     unanchored = REGISTRY["explanation.of"].fn(
         ctx, element="SalaryPaymentStatusServiceBean")
+    # A FAQ takes free text, so it is the surface most exposed to a question
+    # the estate has no business answering. Hybrid retrieval's keyword half
+    # will match almost any string; the cosine floor is what stops that from
+    # becoming a confident-looking answer.
+    nonsense = [REGISTRY["faq.process_steps"].fn(ctx, element=q)
+                for q in ("asdkjhasd nonsense query zzz",
+                          "recipe for chocolate brownies")]
     ctx.close()
     check("out-of-scope subject returns unknown, not a near match",
           junk.outcome == UNKNOWN, junk.outcome)
     check("unknown carries no fabricated evidence", not junk.evidence)
     check("missing curated meaning returns unknown rather than inventing one",
           unanchored.outcome == UNKNOWN, unanchored.outcome)
+    check("an off-topic question returns unknown, not a keyword coincidence",
+          all(r.outcome == UNKNOWN for r in nonsense),
+          str([(r.question, r.outcome) for r in nonsense]))
+    check("an off-topic question narrates nothing and cites nothing",
+          all(not any(sec.steps for sec in r.sections) and not r.evidence
+              for r in nonsense))
+    check("an off-topic question still says what would be needed",
+          all(r.needed for r in nonsense))
 
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
