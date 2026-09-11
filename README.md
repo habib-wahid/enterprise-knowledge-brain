@@ -14,7 +14,7 @@ Build plan: https://claude.ai/code/artifact/08c02e78-74af-43ec-840d-977cc8dbc0ac
 | M2 Wiki ingestion + retrieval | CAP-5 | done |
 | M3 Anchoring | CAP-3 | done (review queue open) |
 | M4 Answer services | CAP-7 | done |
-| M5 MCP server | CAP-8 | not started |
+| M5 MCP server | CAP-8 | done |
 | M6 Process + reference data | CAP-4, CAP-6 | done |
 | M7 Refresh + governance | CAP-9 | partial (rebuild, atomicity, coverage) |
 
@@ -279,6 +279,66 @@ this contract — 28 checks including that invoking every service leaves the
 database byte-identical (BR-53), that all sixteen questions narrate into
 sections, that each serves both audiences, and that an empty section states
 why it is empty instead of disappearing.
+
+## M5 — the MCP server
+
+```sh
+./eck-cli mcp serve                                   # stdio, local use
+ECK_MCP_TOKEN=... ./eck-cli mcp serve --transport streamable-http --port 8900
+./eck-cli mcp audit                                   # who called the HTTP transport, and when
+```
+
+**17 MCP tools, one per registered service — zero hand-written per-tool
+code.** `api/mcp_server.py` walks the same registry the CLI and web UI use,
+builds a real, introspectable Python signature for each service from its
+`inputs`/`required` (so the SDK's own schema generation produces correct
+JSON Schema — required vs optional, per-field descriptions), and registers
+it. A service added to `services/atomic.py` appears here automatically,
+exactly as it does in the other two surfaces — this is BR-51/BR-64 holding
+on a third surface, not a fourth implementation of the same idea.
+
+### Two transports, one deliberate omission
+
+- **stdio** (BR-59, local) — a single trusted process pipe. No auth: the
+  BRD draws the authentication line at *shared* access, and a local
+  subprocess is already gated by filesystem/process access. Runs with
+  `HF_HUB_OFFLINE=1` forced and all third-party logging routed to stderr —
+  stdio is one newline-delimited JSON stream on stdout, and a single stray
+  log line from a library checking Hugging Face for updates corrupts the
+  whole session for a real client. This was caught by piping the process
+  through the actual client library, not by reading the code.
+- **streamable-http** (BR-59, shared-network) — bearer-token gated (BR-60),
+  every request logged with caller and outcome (BR-71), accessible via
+  `eck mcp audit`.
+
+**The SDK's built-in auth is deliberately not used.** It's shaped for a
+full OAuth authorization server (`issuer_url`, `resource_server_url`,
+client registration) — real machinery for a bigger requirement than BR-60
+actually states. A small bearer-check ASGI middleware wraps the SDK's plain
+Starlette app instead, the same shape as the audit middleware already
+wrapping the FastAPI surface.
+
+### Verified over the real wire protocol, not just in-process
+
+`tests/test_mcp_server.py` drives the server as a real subprocess via the
+official client library (stdio) and with real HTTP requests including the
+session handshake (streamable-http) — not by calling the underlying Python
+functions directly, which would miss exactly the class of bug that showed
+up three times while building this: wrong SDK field names
+(`server_info` vs `serverInfo`), a missing session header the transport
+requires after `initialize`, and the stdout-logging hazard above. All three
+were caught by running the real protocol, not by reading the SDK's source.
+
+### A structural fix this milestone forced
+
+The official MCP SDK requires Python 3.10+; this project's dev environment
+had been running on the system's Python 3.9 the entire time. Upgrading to
+3.11 (matching the Dockerfile's `python:3.11-slim`, already the deployment
+target) surfaced that **the full test suite — 53 assertions across three
+suites — had never actually run on the same Python version the Docker image
+uses.** It does now; all pass unchanged, plus one real cross-version
+deprecation warning fixed (`sentence-transformers`' embedding-dimension
+method rename) before it became a hard break in a future minor version.
 
 ## M6 — process behaviour and reference data
 

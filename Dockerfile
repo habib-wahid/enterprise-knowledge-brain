@@ -27,7 +27,9 @@ RUN python -c "from sentence_transformers import SentenceTransformer; \
 
 COPY eck/ ./eck/
 COPY register/ ./register/
+COPY processes/ ./processes/
 COPY eck-cli ./
+COPY ASSISTANT_GUIDE.md ./
 
 ENV ECK_PROJECT_ROOT=/app \
     ECK_DB_PATH=/data/knowledge.db \
@@ -45,3 +47,11 @@ CMD ["python", "-m", "eck.cli", "serve", "--host", "0.0.0.0", "--port", "8800"]
 FROM base AS builder
 ENV ECK_SOURCES_ROOT=/app/sources
 CMD ["sh", "-c", "python -m eck.cli doctor --profile builder && python -m eck.cli refresh --fetch"]
+
+# ---------------------------------------------------------------- mcp
+# CAP-8, shared-network transport. stdio has no separate image target — it
+# runs as a foreground subprocess of whatever launches it (an IDE, an
+# assistant's own config), never as a standalone container.
+FROM base AS mcp
+EXPOSE 8900
+CMD ["sh", "-c", "python -m eck.cli mcp serve --transport streamable-http --host 0.0.0.0 --port 8900"]

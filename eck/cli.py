@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import shutil
 import sys
 import textwrap
@@ -87,6 +88,65 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     size = out.stat().st_size / 1_048_576
     print(f"\npublished {out.relative_to(ROOT)}  ({size:.1f} MB)")
     print("run `eck coverage` for what was and was not interpreted")
+    return 0
+
+
+def cmd_mcp_serve(args: argparse.Namespace) -> int:
+    """CAP-8 — serve the answer services over MCP (BR-58, BR-59)."""
+    if not DB.exists():
+        print("no knowledge.db — run `eck refresh` first", file=sys.stderr)
+        return 1
+    import asyncio
+    import logging
+
+    if args.transport == "stdio":
+        # stdio is a single newline-delimited JSON stream on stdout; any
+        # stray byte there — a log line, a warning, a progress bar — is a
+        # protocol violation a real client cannot recover from. The
+        # embedding model must already be cached for a serving deployment
+        # to work at all, so offline mode is not a fallback here, it is the
+        # correct steady-state behaviour, and it happens to also guarantee
+        # no network-triggered log line can appear mid-session.
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+        os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+        logging.basicConfig(stream=sys.stderr, level=logging.WARNING, force=True)
+        for noisy in ("httpx", "httpx2", "urllib3", "sentence_transformers",
+                     "huggingface_hub", "transformers"):
+            logging.getLogger(noisy).setLevel(logging.ERROR)
+
+        from .api.mcp_server import build_server
+        server = build_server(DB)
+        print(f"eck MCP server — stdio — 17 tools ready", file=sys.stderr)
+        asyncio.run(server.run_stdio_async())
+        return 0
+
+    # streamable-http — shared-network use (BR-59), bearer-token gated (BR-60)
+    token = args.token or os.environ.get("ECK_MCP_TOKEN", "")
+    if not token:
+        print("--token or ECK_MCP_TOKEN is required for the http transport "
+              "(BR-60: shared requests must be authenticated)", file=sys.stderr)
+        return 1
+    import uvicorn
+
+    from .api.mcp_server import build_http_app
+    audit_path = config.mcp_audit_path()
+    app = build_http_app(DB, token=token, audit_path=audit_path)
+    print(f"eck MCP server — streamable-http — http://{args.host}:{args.port}/mcp")
+    print(f"audit log: {audit_path}")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
+def cmd_mcp_audit(_args: argparse.Namespace) -> int:
+    """BR-71 — who called the MCP server over the network, and when."""
+    audit_path = config.mcp_audit_path()
+    if not audit_path.exists():
+        print("no MCP audit log yet — it is created on first HTTP request")
+        return 0
+    lines = audit_path.read_text().splitlines()[-100:]
+    for line in lines:
+        print(line)
     return 0
 
 
@@ -684,6 +744,18 @@ def main(argv: list[str] | None = None) -> int:
     p_ask.add_argument("args", nargs="*", help="key=value arguments")
     p_ask.add_argument("--json", action="store_true")
     p_ask.set_defaults(func=cmd_ask)
+
+    p_mcp = sub.add_parser("mcp", help="serve answer services over MCP (CAP-8)")
+    mcp_sub = p_mcp.add_subparsers(dest="sub", required=True)
+    p_mcp_serve = mcp_sub.add_parser("serve", help="start the MCP server")
+    p_mcp_serve.add_argument("--transport", choices=["stdio", "streamable-http"],
+                             default="stdio")
+    p_mcp_serve.add_argument("--host", default="127.0.0.1")
+    p_mcp_serve.add_argument("--port", type=int, default=8900)
+    p_mcp_serve.add_argument("--token", help="bearer token (or set ECK_MCP_TOKEN)")
+    p_mcp_serve.set_defaults(func=cmd_mcp_serve)
+    mcp_sub.add_parser("audit", help="show the MCP HTTP access log").set_defaults(
+        func=cmd_mcp_audit)
 
     p_doc = sub.add_parser("doctor", help="preflight checks for this machine")
     p_doc.add_argument("--profile", choices=["auto", "builder", "server"],

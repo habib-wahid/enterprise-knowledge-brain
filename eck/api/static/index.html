@@ -646,25 +646,51 @@ $('#q').onkeydown = e => { if (e.key === 'Enter') doSearch(); };
 async function doSearch(){
   const q = $('#q').value.trim(); if (!q) return;
   const out = $('#search-out');
-  out.innerHTML = '<div class="empty"><span class="spin"></span> searching…</div>';
+  out.innerHTML = '<div class="empty"><span class="spin"></span> searching and summarising…</div>';
   const qs = new URLSearchParams({q, limit: 12});
   if ($('#q-source').value) qs.set('source', $('#q-source').value);
   if ($('#q-asset').value) qs.set('asset', $('#q-asset').value);
   try {
-    const d = await api('/api/search?' + qs);
+    const d = await api('/api/answer?' + qs);
     out.innerHTML = '';
+
+    // Paragraph first (BR-50-shaped, but this specific step lives outside
+    // CAP-7 — see services/synthesize.py). Degrades honestly, never silently:
+    // a failed summary still shows the raw evidence below it.
+    if (d.summary){
+      const s = el('div', 'card');
+      const sh = el('div', 'card-h');
+      sh.appendChild(el('span', null, 'summary'));
+      sh.appendChild(el('span', null, d.summary_model || ''));
+      s.appendChild(sh);
+      const sb = el('div', 'card-b');
+      sb.appendChild(el('p', 'stmt', d.summary));
+      s.appendChild(sb);
+      out.appendChild(s);
+    } else if (d.summary_unavailable){
+      const n = el('div', 'note warn');
+      n.appendChild(el('b', null, 'summary unavailable'));
+      n.appendChild(el('div', null,
+        `${d.summary_unavailable} — showing search results below instead.`));
+      out.appendChild(n);
+    }
+
     if (d.verdict === 'weak'){
-      out.innerHTML = `<div class="note warn"><b>weak match</b>
-        Nothing cleared the confidence threshold. Treat these as leads, not as
-        an answer — the platform does not guess.</div>`;
+      const n = el('div', 'note warn');
+      n.appendChild(el('b', null, 'weak match'));
+      n.appendChild(el('div', null,
+        'Nothing cleared the confidence threshold. Treat these as leads, '+
+        'not as an answer — the platform does not guess.'));
+      out.appendChild(n);
     }
     if (!d.hits.length){
       out.innerHTML += `<div class="card"><div class="empty">
         No relevant knowledge found.</div></div>`; return;
     }
-    d.hits.forEach(h => {
+    d.hits.forEach((h, i) => {
       const c = el('div', 'card');
       const hd = el('div', 'card-h');
+      if (d.summary) hd.appendChild(el('span', 'mono', `[${i+1}]`));
       hd.appendChild(tag(h.source === 'wiki' ? 'curated' : 'derived',
                          h.source === 'wiki' ? 't-curated' : 't-derived'));
       hd.appendChild(el('span', null, h.asset));

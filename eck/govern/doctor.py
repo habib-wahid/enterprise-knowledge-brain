@@ -160,6 +160,25 @@ def run(profile: str = "auto") -> tuple[list[dict], str]:
                              "ship curated/ alongside the database: it is the "
                              "one thing a rebuild cannot regenerate"))
 
+    # CAP-8 — both profiles can serve MCP, so this check runs regardless.
+    try:
+        from mcp.server.mcpserver import MCPServer  # noqa: F401
+        checks.append(_check("python: mcp", OK, "importable (v2 API — "
+                             "MCPServer)"))
+    except ImportError as exc:
+        checks.append(_check("python: mcp", FAIL,
+                             f"missing or wrong major version: {exc}",
+                             "pip install 'mcp>=2.0' — this server uses the "
+                             "v2 API (mcp.server.mcpserver.MCPServer), "
+                             "renamed from v1's FastMCP"))
+    guide = config.project_root() / "ASSISTANT_GUIDE.md"
+    checks.append(_check(
+        "assistant guide", OK if guide.exists() else WARN,
+        str(guide) if guide.exists() else f"not found at {guide}",
+        "" if guide.exists() else
+        "eck mcp serve will start without it (BR-62 is Should, not Must), "
+        "but assistants lose the scope/limits resource"))
+
     worst = FAIL if any(c["status"] == FAIL for c in checks) else \
         WARN if any(c["status"] == WARN for c in checks) else OK
     return checks, profile if worst != FAIL else profile
