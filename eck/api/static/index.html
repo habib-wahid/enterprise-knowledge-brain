@@ -155,6 +155,55 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 .empty{padding:34px;text-align:center;color:var(--muted)}
+
+/* ---- the Ask form ---- */
+#ask-input{font:inherit;font-size:14px;padding:8px 11px;border-radius:4px;
+ border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);
+ width:100%;min-height:40px;resize:vertical;line-height:1.5;
+ font-family:var(--sans)}
+#ask-input.code{font-family:var(--mono);font-size:12.5px}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+
+/* ---- a narrated answer ---- */
+.subject{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+ word-break:break-all}
+.sec{border-left:3px solid var(--rule-2)}
+.sec-business{border-left-color:var(--curated)}
+.sec-technical{border-left-color:var(--accent)}
+.sec .card-h strong{font-family:var(--sans);font-size:14px;color:var(--ink);
+ letter-spacing:0}
+.lead{margin:0 0 16px;color:var(--ink-2);font-size:13.5px;max-width:76ch}
+
+.step{padding:14px 0;border-top:1px solid var(--rule)}
+.step:first-of-type{border-top:0;padding-top:2px}
+.step-h{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;
+ margin-bottom:6px}
+.step-n{font-family:var(--mono);font-size:11px;color:var(--muted);
+ border:1px solid var(--rule-2);border-radius:3px;padding:1px 6px;
+ flex:none;font-variant-numeric:tabular-nums}
+.step-t{font-weight:600;font-size:14.5px;min-width:0;word-break:break-word}
+.sec-technical .step-t{font-family:var(--mono);font-size:12.5px;font-weight:500}
+.step-m{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+ margin-top:3px;word-break:break-word}
+
+/* Business prose is meant to be READ — serif, wide measure, real paragraphs. */
+.prose{font-family:var(--serif);font-size:16px;line-height:1.65;
+ white-space:pre-wrap;max-width:74ch;margin:8px 0 2px;color:var(--ink)}
+.prose strong{font-weight:600}
+.prose code{font-size:.85em}
+.step-txt{font-family:var(--mono);font-size:12px;color:var(--ink-2);
+ white-space:pre-wrap;word-break:break-word;margin:4px 0 2px}
+
+.items{margin-top:10px;border-left:2px solid var(--rule);padding-left:12px}
+.item{padding:7px 0;border-top:1px solid var(--rule)}
+.item:first-child{border-top:0}
+.item-t{font-family:var(--mono);font-size:12px;word-break:break-all}
+.item-m{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;
+ word-break:break-word}
+.srcbtn{font-family:var(--mono);font-size:11px;background:none;
+ border:1px solid var(--rule-2);border-radius:3px;color:var(--muted);
+ padding:2px 8px;margin-top:6px}
+.srcbtn:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -178,18 +227,25 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   <!-- ASK -->
   <section id="v-ask">
     <h2>Ask a question</h2>
-    <p class="sub">Fifteen read-only services. Every answer carries its source
-      locations, separates derived fact from curated interpretation, and says
-      plainly when it does not know.</p>
+    <p class="sub">Sixteen questions, answered only from the knowledge base.
+      Every answer gives the business flow in plain language and the
+      source-code execution flow beneath it, each line traceable to a file and
+      a line number. Nothing is inferred or generated — where the knowledge
+      base is silent, the answer says so and names what is missing.</p>
     <div class="card"><div class="card-b">
-      <div class="row" style="margin-bottom:10px">
-        <select id="svc" style="min-width:270px"></select>
-        <span class="pill" id="svc-kind"></span>
+      <div class="lbl">The question</div>
+      <div class="row" style="margin-bottom:12px">
+        <select id="svc" style="flex:1;min-width:280px"></select>
       </div>
-      <p class="sub" id="svc-when" style="margin:0 0 12px"></p>
-      <div id="svc-inputs" class="row" style="margin-bottom:12px"></div>
-      <div class="row">
-        <button class="btn" id="run">Run service</button>
+      <p class="sub" id="svc-answers" style="margin:0 0 6px;color:var(--ink-2)"></p>
+      <p class="sub" id="svc-when" style="margin:0 0 16px"></p>
+
+      <div class="lbl">What you are asking about</div>
+      <textarea id="ask-input" rows="1" spellcheck="false"></textarea>
+      <p class="hint" id="ask-hint"></p>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="run">Ask</button>
         <span id="run-state" class="mono"></span>
       </div>
     </div></div>
@@ -340,120 +396,248 @@ async function openSource(asset, path, start, end){
 }
 
 /* ---------------- ask ---------------- */
+/* The picker offers the sixteen FAQ services, in their numbered order. They
+   are ordinary registry entries carrying faq=1..16, so adding one to the
+   registry adds it here — no list is maintained in this file. */
+function faqs(){ return CAT.filter(c => c.faq).sort((a,b) => a.faq - b.faq); }
+
 function buildServicePicker(){
   const sel = $('#svc');
   sel.innerHTML = '';
-  CAT.forEach(c => {
-    const o = el('option', null, `${c.id} — ${c.question}`);
+  faqs().forEach(c => {
+    const o = el('option', null, `${c.faq}. ${c.question}`);
     o.value = c.id; sel.appendChild(o);
   });
   sel.onchange = renderInputs;
   renderInputs();
 }
+
+function current(){ return CAT.find(x => x.id === $('#svc').value); }
+
 function renderInputs(){
-  const c = CAT.find(x => x.id === $('#svc').value);
-  $('#svc-kind').textContent = c.composite ? 'composite' : 'atomic';
+  const c = current(); if (!c) return;
+  $('#svc-answers').textContent = c.answers_with;
   $('#svc-when').textContent = c.when_to_use;
-  const box = $('#svc-inputs'); box.innerHTML = '';
-  Object.entries(c.inputs).forEach(([k, desc]) => {
-    const i = el('input'); i.type = 'text'; i.id = 'in-' + k;
-    i.placeholder = `${k}${c.required.includes(k) ? ' (required)' : ''} — ${desc}`;
-    i.onkeydown = e => { if (e.key === 'Enter') runService(); };
-    box.appendChild(i);
-  });
-  if (!Object.keys(c.inputs).length)
-    box.appendChild(el('span', 'mono', 'no arguments'));
+  const box = $('#ask-input');
+  box.placeholder = c.example ? `for example: ${c.example}` : '';
+  $('#ask-hint').textContent = c.inputs.element || '';
+  autosize(box);
 }
+
+/* One field for every question. It behaves as an ordinary textbox for a name
+   or a phrase, and grows into a code box when a snippet is pasted — which is
+   what question 16 asks for. */
+function autosize(t){
+  t.classList.toggle('code', t.value.includes('\n') || t.value.length > 120);
+  t.style.height = 'auto';
+  t.style.height = Math.min(340, Math.max(40, t.scrollHeight + 2)) + 'px';
+}
+$('#ask-input').addEventListener('input', e => autosize(e.target));
+$('#ask-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.target.value.includes('\n')){
+    e.preventDefault(); runService();
+  }
+});
 $('#run').onclick = runService;
+
 async function runService(){
-  const c = CAT.find(x => x.id === $('#svc').value);
-  const qs = new URLSearchParams();
-  Object.keys(c.inputs).forEach(k => {
-    const v = ($('#in-' + k) || {}).value || '';
-    if (v.trim()) qs.set(k, v.trim());
-  });
-  $('#run-state').innerHTML = '<span class="spin"></span> running…';
+  const c = current(); if (!c) return;
+  const value = $('#ask-input').value.trim();
+  if (!value){
+    $('#ask-out').innerHTML =
+      '<div class="note warn"><b>nothing to ask about</b>' +
+      'Name a business process, a screen, a class, a table or an exception.</div>';
+    $('#ask-input').focus();
+    return;
+  }
+  $('#run-state').innerHTML = '<span class="spin"></span> reading the knowledge base…';
+  $('#run').disabled = true;
   $('#ask-out').innerHTML = '';
   try {
+    const qs = new URLSearchParams({element: value});
     const r = await api(`/api/services/${c.id}?` + qs.toString());
     $('#ask-out').innerHTML = '';
-    $('#ask-out').appendChild(renderResult(r));
+    $('#ask-out').appendChild(renderResult(r, c));
   } catch (err) {
     $('#ask-out').innerHTML =
       `<div class="note bad"><b>request failed</b>${esc(err.message)}</div>`;
-  } finally { $('#run-state').textContent = ''; }
+  } finally { $('#run-state').textContent = ''; $('#run').disabled = false; }
 }
 
-function renderResult(r){
-  const card = el('div', 'card');
+/* ---------------- rendering an answer ---------------- */
+/* Business sections are set as prose to be read; technical sections as a
+   reference to be scanned. Same evidence, two audiences — which is the whole
+   point of the answer shape. */
+
+const OUTCOME_LABEL = {
+  answered: 'answered from the knowledge base',
+  partial: 'partly answered — some sections are empty',
+  unknown: 'the knowledge base does not know this',
+};
+
+function inlineMd(text){
+  /* The wiki is markdown. Only the two marks that change how a sentence READS
+     are honoured; everything else stays literal, and everything is escaped
+     first. */
+  return esc(text)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+function srcButton(ref, label){
+  if (!ref || !ref.path) return null;
+  const b = el('button', 'srcbtn',
+    label || `${ref.asset} · ${ref.path}:${ref.start_line}`);
+  b.onclick = () => openSource(ref.asset, ref.path, ref.start_line,
+                              ref.end_line || ref.start_line);
+  return b;
+}
+
+function renderStep(st, audience){
+  const d = el('div', 'step');
+  const h = el('div', 'step-h');
+  if (st.n) h.appendChild(el('span', 'step-n', st.n));
+  h.appendChild(el('span', 'step-t', st.title || ''));
+  if (st.origin) h.appendChild(tag(st.origin, 't-' + st.origin));
+  d.appendChild(h);
+
+  if (st.text){
+    if (audience === 'business'){
+      const p = el('div', 'prose');
+      p.innerHTML = inlineMd(st.text);
+      d.appendChild(p);
+    } else {
+      d.appendChild(el('div', 'step-txt', st.text));
+    }
+  }
+  (st.meta || []).forEach(m => d.appendChild(el('div', 'step-m', m)));
+
+  const btn = srcButton(st.ref, 'open source');
+  if (btn) d.appendChild(btn);
+
+  /* An alternative candidate re-asks the same question against that exact
+     name. Resolution from a business phrase is a shortlist, not a decision —
+     this is how the reader makes the decision. */
+  if (st.ask){
+    const a = el('button', 'srcbtn', 'ask about this instead');
+    a.style.marginLeft = '6px';
+    a.onclick = () => {
+      const box = $('#ask-input');
+      box.value = st.ask; autosize(box);
+      window.scrollTo({top: 0, behavior: 'smooth'});
+      runService();
+    };
+    d.appendChild(a);
+  }
+
+  if ((st.items || []).length){
+    const box = el('div', 'items');
+    st.items.forEach(it => {
+      const row = el('div', 'item');
+      row.appendChild(el('div', 'item-t', it.title));
+      if (it.text) row.appendChild(el('div', 'item-m', it.text));
+      (it.meta || []).forEach(m => row.appendChild(el('div', 'item-m', m)));
+      const b = srcButton(it.ref, 'open source');
+      if (b) row.appendChild(b);
+      box.appendChild(row);
+    });
+    d.appendChild(box);
+  }
+  return d;
+}
+
+function renderSection(sec){
+  const card = el('div', 'card sec sec-' + sec.audience);
   const h = el('div', 'card-h');
-  h.appendChild(tag(r.outcome, 't-' + r.outcome));
-  h.appendChild(el('span', null, r.service));
-  h.appendChild(el('span', null, '· ' + r.question));
+  h.appendChild(tag(sec.audience === 'business' ? 'for everyone' : 'for developers',
+                    sec.audience === 'business' ? 't-curated' : 't-derived'));
+  h.appendChild(el('strong', null, sec.title));
   card.appendChild(h);
 
   const b = el('div', 'card-b');
+  if (sec.lead) b.appendChild(el('p', 'lead', sec.lead));
 
-  if (r.outcome === 'unknown'){
-    const n = el('div', 'note bad');
-    n.appendChild(el('b', null, 'the platform does not know'));
-    n.appendChild(el('div', null,
-      (r.findings[0] && r.findings[0].statement) || ''));
+  if (!(sec.steps || []).length){
+    const n = el('div', 'note warn');
+    n.appendChild(el('b', null, 'nothing known here'));
+    n.appendChild(el('div', null, sec.empty ||
+      'The knowledge base holds nothing for this section.'));
     b.appendChild(n);
+  } else {
+    sec.steps.forEach(st => b.appendChild(renderStep(st, sec.audience)));
   }
 
-  (r.findings || []).forEach(f => {
-    if (f.section){
-      const s = el('div', null);
-      const hd = el('div', 'row');
-      hd.style.marginBottom = '6px';
-      hd.appendChild(tag(f.outcome, 't-' + f.outcome));
-      hd.appendChild(el('strong', null, f.section.replace(/_/g, ' ')));
-      s.appendChild(hd);
-      const p = el('pre');
-      p.style.maxHeight = '210px';
-      p.textContent = (f.detail || []).map(d => JSON.stringify(d)).join('\n');
-      s.appendChild(p);
-      s.style.marginBottom = '14px';
-      b.appendChild(s);
-    } else {
-      const p = el('pre');
-      p.style.marginBottom = '10px';
-      p.textContent = JSON.stringify(f, null, 1);
-      b.appendChild(p);
-    }
-  });
-
-  if (r.needed && r.needed.length){
-    const n = el('div', 'note warn');
-    n.appendChild(el('b', null, 'what would be needed'));
+  if ((sec.notes || []).length){
+    const n = el('div', 'note');
+    n.style.margin = '16px 0 0';
+    n.appendChild(el('b', null, 'how to read this'));
     const ul = el('ul', 'gaps');
-    r.needed.forEach(x => ul.appendChild(el('li', null, x)));
+    sec.notes.forEach(x => ul.appendChild(el('li', null, x)));
     n.appendChild(ul);
     b.appendChild(n);
   }
-
-  if (r.evidence && r.evidence.length){
-    b.appendChild(el('div', 'lbl', `evidence — ${r.evidence.length} source reference(s)`));
-    b.appendChild(evidenceList(r.evidence));
-  }
-
-  if (r.gaps && r.gaps.length){
-    const n = el('div', 'note warn');
-    n.appendChild(el('b', null, 'gaps — what this answer does not cover'));
-    const ul = el('ul', 'gaps');
-    r.gaps.forEach(x => ul.appendChild(el('li', null, x)));
-    n.appendChild(ul);
-    b.appendChild(n);
-  }
-
-  const g = el('div', 'note');
-  g.appendChild(el('b', null, 'how to present this'));
-  g.appendChild(el('div', null, r.presentation_guidance));
-  b.appendChild(g);
-
   card.appendChild(b);
   return card;
+}
+
+function renderResult(r, spec){
+  const wrap = el('div');
+
+  const head = el('div', 'card');
+  const hh = el('div', 'card-h');
+  hh.appendChild(tag(r.outcome, 't-' + r.outcome));
+  hh.appendChild(el('span', null, OUTCOME_LABEL[r.outcome] || r.outcome));
+  head.appendChild(hh);
+  const hb = el('div', 'card-b');
+  hb.appendChild(el('div', null, (spec && spec.question) || r.service));
+  hb.appendChild(el('div', 'lead', '“' + r.question + '”'));
+
+  const sub = r.subject || {};
+  if (sub.resolved){
+    hb.appendChild(el('div', 'subject',
+      `resolved to ${sub.kind} ${sub.fqn} · ${sub.application} (${sub.asset})` +
+      (sub.route ? ` · route /${sub.route}` : '') +
+      (sub.table ? ` · table ${sub.table}` : '') +
+      ` · ${sub.path}:${sub.start_line}-${sub.end_line}`));
+  }
+  head.appendChild(hb);
+  wrap.appendChild(head);
+
+  (r.sections || []).forEach(sec => wrap.appendChild(renderSection(sec)));
+
+  if (!(r.sections || []).length && (r.findings || []).length){
+    const c = el('div', 'card'); const b = el('div', 'card-b');
+    const pre = el('pre');
+    pre.textContent = JSON.stringify(r.findings, null, 1);
+    b.appendChild(pre); c.appendChild(b); wrap.appendChild(c);
+  }
+
+  const foot = el('div', 'card');
+  const fb = el('div', 'card-b');
+  let anything = false;
+
+  if ((r.needed || []).length){
+    const n = el('div', 'note warn');
+    n.appendChild(el('b', null, 'what would be needed to answer this'));
+    const ul = el('ul', 'gaps');
+    r.needed.forEach(x => ul.appendChild(el('li', null, x)));
+    n.appendChild(ul); fb.appendChild(n); anything = true;
+  }
+  if ((r.gaps || []).length){
+    const n = el('div', 'note warn');
+    n.appendChild(el('b', null, 'limits of this answer'));
+    const ul = el('ul', 'gaps');
+    r.gaps.forEach(x => ul.appendChild(el('li', null, x)));
+    n.appendChild(ul); fb.appendChild(n); anything = true;
+  }
+  if ((r.evidence || []).length){
+    fb.appendChild(el('div', 'lbl',
+      `evidence — ${r.evidence.length} source reference(s) behind this answer`));
+    fb.appendChild(evidenceList(r.evidence));
+    anything = true;
+  }
+  if (anything){ foot.appendChild(fb); wrap.appendChild(foot); }
+  return wrap;
 }
 
 /* ---------------- search ---------------- */

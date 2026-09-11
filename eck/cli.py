@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import shutil
 import sys
+import textwrap
 import warnings
 from pathlib import Path
 
@@ -29,6 +30,22 @@ load_env()
 ROOT = config.project_root()
 REGISTER = config.register_path()
 DB = config.db_path()
+
+
+def _wrap(text: str, indent: str = "", width: int = 92) -> str:
+    """Terminal-width prose. Curated documentation is written in paragraphs and
+    tables; the paragraphs wrap, and anything already laid out (a markdown
+    table, a code line) is left exactly as it is."""
+    out = []
+    for line in (text or "").splitlines():
+        if not line.strip():
+            out.append("")
+        elif line.lstrip().startswith(("|", "-", "*", "#")) or "  " in line[:4]:
+            out.append(indent + line)
+        else:
+            out.extend(textwrap.wrap(line, width=width, initial_indent=indent,
+                                     subsequent_indent=indent) or [""])
+    return "\n".join(out)
 BUILD_DIR = DB.parent
 
 
@@ -161,19 +178,35 @@ def cmd_services(args: argparse.Namespace) -> int:
     if args.json:
         print(_json.dumps(cat, indent=2))
         return 0
-    for kind, label in ((False, "ATOMIC SERVICES (BR-48)"),
-                        (True, "COMPOSITE SERVICES (BR-49)")):
+    faq = sorted((c for c in cat if c["faq"]), key=lambda c: c["faq"])
+    print("THE QUESTIONS PEOPLE ASK (CAP-7 FAQ)")
+    print("Each answers in two halves: the business flow in plain language, "
+          "and the\nsource-code execution flow underneath it.\n")
+    for c in faq:
+        print(f"  {c['faq']:>2}. {c['question']}")
+        print(f"      {c['id']}")
+        print(f"      answers with: {c['answers_with']}")
+        if c["example"]:
+            print(f"      example:      eck ask {c['id']} element={c['example']!r}")
+        print()
+
+    print("BUILDING BLOCKS — one query each, composed by the questions above")
+    for kind, label in ((False, "  atomic (BR-48)"), (True, "  composite (BR-49)")):
+        block = [c for c in cat if c["composite"] is kind and not c["faq"]]
+        if not block:
+            continue
         print(label)
-        for s in [c for c in cat if c["composite"] is kind]:
-            print(f"  {s['id']}")
-            print(f"      Q: {s['question']}")
-            print(f"      when: {s['when_to_use']}")
+        for s in block:
+            print(f"    {s['id']}")
+            print(f"        Q: {s['question']}")
+            print(f"        when: {s['when_to_use']}")
             if s["inputs"]:
                 for k, v in s["inputs"].items():
                     req = "required" if k in s["required"] else "optional"
-                    print(f"        {k:<10} ({req}) {v}")
+                    print(f"          {k:<10} ({req}) {v}")
             print()
-    print(f"{len(cat)} services. All read-only (BR-53).")
+    print(f"{len(cat)} services ({len(faq)} questions, "
+          f"{len(cat) - len(faq)} building blocks). All read-only (BR-53).")
     return 0
 
 
@@ -222,7 +255,52 @@ def cmd_ask(args: argparse.Namespace) -> int:
     print(f"SERVICE   {result.service}")
     print(f"QUESTION  {result.question}")
     print(f"OUTCOME   {result.outcome.upper()}")
+    if result.subject.get("resolved"):
+        sub = result.subject
+        print(f"SUBJECT   {sub['kind']} {sub['fqn']}")
+        print(f"          {sub['application']} ({sub['asset']}) · "
+              f"{sub['path']}:{sub['start_line']}-{sub['end_line']}")
     print()
+
+    # A FAQ service narrates its own answer; print that rather than the raw
+    # findings, which are the machine shape (BR-50).
+    if result.sections:
+        for sec in result.sections:
+            print(f"{'=' * 72}")
+            print(f"{sec.title}   [{sec.audience}]")
+            if sec.lead:
+                print(f"{_wrap(sec.lead, '  ')}")
+            print()
+            if not sec.steps:
+                print(f"{_wrap('NOT KNOWN: ' + sec.empty, '  ')}\n")
+            for st in sec.steps:
+                head = f"  {st.get('n', '')}. {st.get('title', '')}".rstrip()
+                print(head)
+                if st.get("text"):
+                    print(_wrap(st["text"], "     "))
+                for m in st.get("meta", []):
+                    print(f"     · {m}")
+                for it in st.get("items", []):
+                    print(f"     - {it['title']}")
+                    for m in it.get("meta", [])[:3]:
+                        print(f"         {m}")
+                print()
+            for n in sec.notes:
+                print(_wrap("NOTE: " + n, "  "))
+            print()
+        if result.needed:
+            print("WHAT WOULD BE NEEDED (BR-55)")
+            for n in result.needed:
+                print(f"  - {n}")
+        if result.gaps:
+            print("\nLIMITS OF THIS ANSWER (BR-72)")
+            for g in result.gaps:
+                print(_wrap("  - " + g, ""))
+        print(f"\nEVIDENCE (BR-54) — {len(result.evidence)} reference(s)")
+        for e in result.evidence[:12]:
+            print(f"  [{e.origin}] {e.ref()}")
+        return 0
+
     for f in result.findings:
         if "section" in f:
             print(f"-- {f['section']}  [{f['outcome']}]")

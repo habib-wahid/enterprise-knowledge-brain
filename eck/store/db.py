@@ -150,6 +150,18 @@ class KnowledgeStore:
     def query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         return self.conn.execute(sql, params).fetchall()
 
+    def has_table(self, name: str) -> bool:
+        """Does this database carry that table?
+
+        A knowledge.db built before a capability landed simply lacks its
+        tables. That is a knowledge gap to report (BR-70), not a crash: a
+        reader must be able to open an older database and be told what it
+        cannot answer, rather than receive a stack trace.
+        """
+        return bool(self.conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+            (name,)).fetchone())
+
     def scalar(self, sql: str, params: tuple = ()) -> Any:
         row = self.conn.execute(sql, params).fetchone()
         return row[0] if row else None

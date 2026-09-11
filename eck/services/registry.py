@@ -26,6 +26,13 @@ class ServiceSpec:
     fn: Callable[..., ServiceResult]
     composite: bool = False
     required: list[str] = field(default_factory=list)
+    # CAP-7 FAQ layer. 0 = a building block, invoked by id; 1..n = one of the
+    # numbered questions a person actually asks, and the order they are
+    # offered in. The Ask page lists these; the CLI and MCP see them too,
+    # because they are ordinary registry entries (BR-64).
+    faq: int = 0
+    example: str = ""            # a concrete input, so the question is legible
+    answers_with: str = ""       # what the answer contains, in one line
 
     def signature(self) -> str:
         args = " ".join(f"<{k}>" if k in self.required else f"[{k}]"
@@ -37,7 +44,8 @@ REGISTRY: dict[str, ServiceSpec] = {}
 
 
 def service(id: str, category: str, question: str, when_to_use: str,
-            inputs: dict[str, str], composite: bool = False):
+            inputs: dict[str, str], composite: bool = False,
+            faq: int = 0, example: str = "", answers_with: str = ""):
     """Register one service. All services are read-only (BR-53)."""
     def wrap(fn: Callable[..., ServiceResult]) -> Callable[..., ServiceResult]:
         if id in REGISTRY:
@@ -49,7 +57,8 @@ def service(id: str, category: str, question: str, when_to_use: str,
         REGISTRY[id] = ServiceSpec(
             id=id, category=category, question=question,
             when_to_use=when_to_use, inputs=inputs, fn=fn,
-            composite=composite, required=required)
+            composite=composite, required=required,
+            faq=faq, example=example, answers_with=answers_with)
         return fn
     return wrap
 
@@ -62,12 +71,20 @@ def get(id: str) -> ServiceSpec:
 
 
 def all_specs() -> list[ServiceSpec]:
-    return sorted(REGISTRY.values(), key=lambda s: (s.composite, s.category, s.id))
+    """FAQ services first, in their numbered order; then the building blocks."""
+    return sorted(REGISTRY.values(),
+                  key=lambda s: (s.faq == 0, s.faq, s.composite, s.category, s.id))
+
+
+def faq_specs() -> list[ServiceSpec]:
+    """The numbered questions, in order — what the Ask page offers."""
+    load_all()
+    return sorted((s for s in REGISTRY.values() if s.faq), key=lambda s: s.faq)
 
 
 def load_all() -> None:
     """Import every service module so the decorators run."""
-    from . import atomic, composite  # noqa: F401
+    from . import atomic, composite, faq  # noqa: F401
 
 
 def catalogue() -> list[dict[str, Any]]:
@@ -78,5 +95,6 @@ def catalogue() -> list[dict[str, Any]]:
         "id": s.id, "category": s.category, "question": s.question,
         "when_to_use": s.when_to_use, "inputs": s.inputs,
         "required": s.required, "composite": s.composite,
+        "faq": s.faq, "example": s.example, "answers_with": s.answers_with,
         "read_only": True,
     } for s in all_specs()]

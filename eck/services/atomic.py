@@ -74,6 +74,22 @@ def _subject_or_unknown(ctx: Context, sid: str, element: str,
     return found, None
 
 
+def _needs_capability(ctx: Context, sid: str, question: str, table: str,
+                      cap: str) -> ServiceResult | None:
+    """BR-70 — an older knowledge.db is a stated gap, not a stack trace.
+
+    `eck refresh` rebuilds with the current schema; until then this capability
+    genuinely is not in the file being read, and saying so is the answer.
+    """
+    if ctx.store.has_table(table):
+        return None
+    return unknown(
+        sid, question,
+        f"This knowledge base was built before {cap} and carries no {table} "
+        f"data, so the question cannot be answered from it.",
+        needed=[f"run `eck refresh` to rebuild the knowledge base with {cap}"])
+
+
 def _header(s: Subject) -> dict[str, Any]:
     return {"subject": s.fqn, "kind": s.kind, "asset": s.asset_id,
             "resolved_by": s.how, "resolution_confidence": round(s.confidence, 3)}
@@ -599,6 +615,10 @@ def configuration_affecting(ctx: Context, element: str,
                 "or table not on it returns unknown, never a guess (BR-45).",
     inputs={"key": "a config property key or a reference table name"})
 def configuration_reference_data(ctx: Context, key: str) -> ServiceResult:
+    missing = _needs_capability(ctx, "configuration.reference_data", key,
+                                "refdata_source", "CAP-6 reference data")
+    if missing:
+        return missing
     src_row = ctx.store.query(
         "SELECT * FROM refdata_source WHERE id = ?", (key,))
     if not src_row:
@@ -664,6 +684,10 @@ def configuration_reference_data(ctx: Context, key: str) -> ServiceResult:
                 "instead; source order is not process order.",
     inputs={"process": "the process name or id"})
 def flow_process_stages(ctx: Context, process: str) -> ServiceResult:
+    missing = _needs_capability(ctx, "flow.process_stages", process,
+                                "process", "CAP-4 process & behaviour")
+    if missing:
+        return missing
     rows = ctx.store.query(
         "SELECT * FROM process WHERE id = ? OR name LIKE ?",
         (process, f"%{process}%"))
@@ -788,7 +812,12 @@ def flow_process_stages(ctx: Context, process: str) -> ServiceResult:
 def status_platform(ctx: Context) -> ServiceResult:
     run = ctx.store.query(
         "SELECT * FROM refresh_run ORDER BY started_at DESC LIMIT 1")[0]
-    counts = {k: ctx.store.scalar(f"SELECT COUNT(*) FROM {t}") for k, t in (
+    # A count of a table this database does not have is None, not zero —
+    # "not built with that capability" and "built with it and empty" are
+    # different facts and must not read the same (BR-70).
+    counts = {k: (ctx.store.scalar(f"SELECT COUNT(*) FROM {t}")
+                  if ctx.store.has_table(t) else None)
+              for k, t in (
         ("assets", "asset"), ("nodes", "node"), ("edges", "edge"),
         ("chunks", "chunk"), ("anchors", "anchor"),
         ("processes", "process"), ("refdata_items", "refdata_source"))}
@@ -796,13 +825,22 @@ def status_platform(ctx: Context) -> ServiceResult:
         "SELECT COUNT(*) FROM edge WHERE kind='invokes'") or 0
     unresolved = ctx.store.scalar("SELECT COUNT(*) FROM unresolved_ref") or 0
     rate = 100.0 * resolved_calls / max(1, resolved_calls + unresolved)
-    broken_stages = ctx.store.scalar(
+    broken_stages = (ctx.store.scalar(
         "SELECT COUNT(*) FROM process_stage_anchor WHERE state='broken'") or 0
+        if ctx.store.has_table("process_stage_anchor") else 0)
 
     gaps = [f"{100 - rate:.1f}% of call sites are unresolved"]
-    gaps.append(f"{counts['processes']} process(es) curated — most business "
-               f"processes have no CAP-4 definition yet" if counts["processes"]
-               else "no process is curated yet (CAP-4)")
+    if counts["processes"] is None:
+        gaps.append("this knowledge base predates CAP-4 and holds no curated "
+                    "processes at all — run `eck refresh` to rebuild it")
+    elif counts["processes"]:
+        gaps.append(f"{counts['processes']} process(es) curated — most business "
+                    f"processes have no CAP-4 definition yet")
+    else:
+        gaps.append("no process is curated yet (CAP-4)")
+    if counts["refdata_items"] is None:
+        gaps.append("this knowledge base predates CAP-6, so no reference-data "
+                    "value can be read from it")
     if broken_stages:
         gaps.append(f"{broken_stages} process stage anchor(s) are broken — "
                     f"see flow.process_stages for which")

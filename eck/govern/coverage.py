@@ -119,8 +119,12 @@ def report(db_path: Path) -> str:
     w("")
 
     w("PROCESS & BEHAVIOUR (CAP-4)")
-    proc_count = s.scalar("SELECT COUNT(*) FROM process") or 0
-    if proc_count:
+    proc_count = (s.scalar("SELECT COUNT(*) FROM process") or 0
+                  if s.has_table("process") else 0)
+    if not s.has_table("process"):
+        w("  not in this knowledge base — it was built before CAP-4.")
+        w("  Run `eck refresh` to add curated processes to it.")
+    elif proc_count:
         for r in s.query("SELECT id, name FROM process ORDER BY id"):
             n_stages = s.scalar(
                 "SELECT COUNT(*) FROM process_stage WHERE process_id=?",
@@ -135,8 +139,12 @@ def report(db_path: Path) -> str:
     w("")
 
     w("REFERENCE DATA (CAP-6)")
-    refdata_count = s.scalar("SELECT COUNT(*) FROM refdata_source") or 0
-    if refdata_count:
+    refdata_count = (s.scalar("SELECT COUNT(*) FROM refdata_source") or 0
+                     if s.has_table("refdata_source") else 0)
+    if not s.has_table("refdata_source"):
+        w("  not in this knowledge base — it was built before CAP-6.")
+        w("  Run `eck refresh` to add reference data to it.")
+    elif refdata_count:
         values = s.scalar("SELECT COUNT(*) FROM refdata_value") or 0
         excluded = s.scalar("SELECT COUNT(*) FROM refdata_excluded") or 0
         w(f"  allow-listed items   {refdata_count:>4}")
@@ -240,12 +248,17 @@ def data(db_path: Path) -> dict:
                 process_stage_anchor a JOIN process_stage st
                 ON st.id = a.stage_id WHERE st.process_id=? AND a.state='broken'""",
                 (r["id"],)) or 0,
-        } for r in s.query("SELECT id, name FROM process ORDER BY id")],
+        } for r in (s.query("SELECT id, name FROM process ORDER BY id")
+                    if s.has_table("process") else [])],
         "refdata": {
             "items": s.scalar("SELECT COUNT(*) FROM refdata_source") or 0,
             "values": s.scalar("SELECT COUNT(*) FROM refdata_value") or 0,
             "excluded": s.scalar("SELECT COUNT(*) FROM refdata_excluded") or 0,
             "oldest_snapshot": s.scalar("SELECT MIN(snapshot_at) FROM refdata_value"),
+        } if s.has_table("refdata_source") else {
+            "items": 0, "values": 0, "excluded": 0, "oldest_snapshot": None,
+            "unavailable": "this knowledge base was built before CAP-6; "
+                           "run `eck refresh` to add reference data",
         },
         "gaps": [],
     }

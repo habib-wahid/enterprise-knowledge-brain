@@ -184,10 +184,17 @@ Hybrid retrieval:
 Verdicts: `strong` (≥ 0.70), `weak` (0.62–0.70), `none`. Similarity is not
 treated as proof that a chunk *answers* the question.
 
-### 15 services, one registry
+### 33 services, one registry
 
 `eck/services/registry.py` is the only definition. CLI, HTTP, and the web UI
 all enumerate it.
+
+**The 16 questions (`faq.*`)** — what the Ask page offers. One input each: a
+business process, a screen, a class, a table, an exception, or a pasted
+snippet. Process steps, end to end, rules and validations, execution flow,
+code inventory, business↔code mapping, data involved, trigger and aftermath,
+conditions and decisions, where implemented, error root cause, error flow,
+blast radius, change impact, before you change, replacement analysis.
 
 **Atomic (11):** navigation, impact, flow, checks, effects, explanation,
 placement, search, detail, configuration, status.
@@ -197,7 +204,16 @@ description.
 
 Every result is a structured envelope: `answered` / `partial` / `unknown`,
 findings, evidence with file:lines, gaps, and presentation guidance.
-**No LLM at answer time.** Narration is the consumer’s job.
+**No LLM at answer time.**
+
+The FAQ layer adds `sections` to that envelope — the same evidence arranged
+to be read, always with one `business` section and one `technical` one, so a
+single answer serves the person who will never open the source and the person
+who has to change it. `eck/services/narrate.py` builds them by ordering and
+labelling rows: business prose is copied verbatim from curated wiki or CAP-4
+stage text, technical steps are node and edge rows. Nothing is composed, so
+there is nothing to hallucinate with; an empty section states why it is empty
+and what would fill it.
 
 Web views: Ask, Search, Estate, Coverage, Review, Audit.
 
@@ -218,7 +234,7 @@ Web views: Ask, Search, Estate, Coverage, Review, Audit.
 | `eck/govern/refresh.py` | Rebuild coordinator |
 | `eck/govern/anchor_check.py` | resolved / stale / broken / orphaned |
 | `eck/store/schema.sql` | SQLite graph, chunks, vectors, failures |
-| `eck/services/` | Retrieval, resolution, 15 services |
+| `eck/services/` | Retrieval, resolution, 16 questions + 17 building blocks, narration |
 | `eck/api/http.py` | FastAPI + review write endpoint |
 | `eck/api/static/index.html` | Browser UI |
 | `curated/candidates.jsonl` | Live human-review queue |
@@ -281,7 +297,7 @@ Useful commands:
 ./eck-cli anchors review
 ```
 
-Anthropic is needed **only** for `--proposer llm`. Search and the 15 services
+Anthropic is needed **only** for `--proposer llm`. Search and every service
 run locally.
 
 ---
