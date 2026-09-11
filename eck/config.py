@@ -86,6 +86,18 @@ def refdata_register_path() -> Path:
                      project_root() / "register" / "refdata.yaml")
 
 
+def mcp_audit_path() -> Path:
+    """BR-71 — where the MCP HTTP transport logs callers.
+
+    Deliberately NOT under db_path()'s directory: that directory is mounted
+    read-only in the serving deployment (knowledge.db has no business being
+    written to), and the audit log needs to be writable. Keeping it on its
+    own configurable path means the read-only mount stays read-only.
+    """
+    return _env_path("ECK_MCP_AUDIT_PATH",
+                     project_root() / "build" / "mcp_audit.jsonl")
+
+
 def sources_root() -> Path:
     """Where checked-out estate source lives, when it is present at all.
 

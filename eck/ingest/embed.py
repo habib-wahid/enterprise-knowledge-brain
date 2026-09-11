@@ -37,7 +37,12 @@ class LocalEmbedder:
                 "`pip install -r requirements.txt`") from exc
         self.name = model_name
         self.model = SentenceTransformer(model_name)
-        self.dim = self.model.get_sentence_embedding_dimension()
+        # get_sentence_embedding_dimension() was renamed in newer
+        # sentence-transformers; support both without pinning a floor that
+        # would fight the rest of the dependency set.
+        self.dim = (self.model.get_embedding_dimension()
+                   if hasattr(self.model, "get_embedding_dimension")
+                   else self.model.get_sentence_embedding_dimension())
         self.local = True
 
     def encode(self, texts: Sequence[str], batch_size: int = 64,

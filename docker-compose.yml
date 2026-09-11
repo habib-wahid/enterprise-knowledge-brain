@@ -14,6 +14,25 @@ services:
       - model-cache:/models
     restart: unless-stopped
 
+  # CAP-8 shared-network transport for AI assistants. Off by default
+  # (profile-gated) — a demo usually only needs the web UI:
+  #   ECK_MCP_TOKEN=... docker compose --profile mcp up mcp
+  mcp:
+    build: {context: ., target: mcp}
+    profiles: ["mcp"]
+    ports: ["8900:8900"]
+    environment:
+      ECK_DB_PATH: /data/knowledge.db
+      ECK_CURATED_DIR: /data/curated
+      ECK_MCP_AUDIT_PATH: /audit/mcp_audit.jsonl
+      ECK_MCP_TOKEN: ${ECK_MCP_TOKEN:?set ECK_MCP_TOKEN before starting the mcp service}
+      HF_HOME: /models
+    volumes:
+      - ./deploy/data:/data:ro        # same knowledge base as the web UI, read-only
+      - ./deploy/mcp-audit:/audit     # writable — the one thing this service writes
+      - model-cache:/models
+    restart: unless-stopped
+
   # Run on a machine with network access to the estate:
   #   docker compose run --rm builder
   builder:

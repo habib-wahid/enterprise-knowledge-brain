@@ -122,6 +122,40 @@ def create_app(db_path: Path) -> FastAPI:
         finally:
             ctx.close()
 
+    @app.get("/api/answer")
+    def api_answer(q: str, source: str = None, asset: str = None,
+                   limit: int = 8):
+        """Retrieval PLUS a synthesised paragraph — for the web UI's Search
+        view. Not a CAP-7 service (see services/synthesize.py): this is the
+        one place in the platform that calls a model directly, and it is
+        additive — the raw hits are always returned alongside the summary,
+        never replaced by it, so a synthesis failure degrades to exactly
+        today's search experience rather than to a broken page.
+        """
+        from ..services.retrieval import verdict
+        from ..services.synthesize import synthesize
+        ctx = Context(db_path)
+        try:
+            hits = ctx.retriever.search(q, limit=int(limit),
+                                        source=source or None,
+                                        asset_id=asset or None)
+            v = verdict(hits)
+            result = synthesize(q, hits, v)
+            return {
+                "question": q, "verdict": v,
+                "summary": result.summary, "summary_model": result.model,
+                "summary_unavailable": result.error,
+                "hits": [{
+                    "chunk_id": h.chunk_id, "asset": h.asset_id,
+                    "source": h.source, "origin": h.origin,
+                    "heading": h.heading, "path": h.path,
+                    "start_line": h.start_line, "end_line": h.end_line,
+                    "matched_by": h.matched_by,
+                    "similarity": round(h.similarity, 3) if h.similarity else None,
+                    "excerpt": h.text[:700]} for h in hits]}
+        finally:
+            ctx.close()
+
     # ---------------------------------------------------------------- services
 
     @app.get("/api/services/{service_id}")
